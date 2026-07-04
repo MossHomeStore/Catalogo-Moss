@@ -213,51 +213,94 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
 /* ===== QUOTE PNG CARD ===== */
 #quote-png-card{
   position:fixed; left:-9999px; top:0;
-  width:640px; background:var(--white);
+  width:520px; background:#ffffff;
   font-family:'DM Sans',sans-serif;
-  border-radius:0; overflow:hidden;
-  box-shadow:none;
+  border-radius:0; overflow:hidden; box-shadow:none;
 }
+/* Header */
 .qpc-header{
-  background:var(--espresso); padding:28px 36px;
+  background:#5b4f47; padding:22px 28px;
   display:flex; align-items:center; justify-content:space-between;
 }
-.qpc-logo{ height:44px; }
-.qpc-header-text{ text-align:right; color:var(--sand); font-size:12px; line-height:1.7; }
-.qpc-body{ padding:32px 36px; }
-.qpc-label{
-  font-size:10px; font-weight:500; text-transform:uppercase;
-  letter-spacing:.12em; color:var(--driftwood); margin-bottom:4px;
+.qpc-logo{ height:38px; object-fit:contain; }
+.qpc-header-right{ text-align:right; }
+.qpc-header-label{ font-size:9px; color:#ddc1a7; text-transform:uppercase; letter-spacing:.14em; }
+.qpc-header-date{ font-size:11px; color:#bd9479; margin-top:2px; }
+/* Product image */
+.qpc-img-wrap{
+  width:100%; height:220px; background:#f0ebe4;
+  overflow:hidden; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.qpc-img-wrap img{ width:100%; height:100%; object-fit:contain; padding:12px; }
+.qpc-img-badge{
+  position:absolute; top:10px; left:10px;
+  background:rgba(91,79,71,.78); color:#fff;
+  font-size:9px; padding:3px 9px; border-radius:20px;
+  letter-spacing:.1em; text-transform:uppercase;
+}
+/* Body */
+.qpc-body{ padding:22px 28px 14px; }
+.qpc-label2{
+  font-size:9px; font-weight:500; text-transform:uppercase;
+  letter-spacing:.12em; color:#bd9479; margin-bottom:4px;
 }
 .qpc-product-name{
-  font-family:'Cormorant Garamond',serif; font-size:28px; font-weight:300;
-  color:var(--espresso); margin-bottom:2px; line-height:1.2;
+  font-family:'Cormorant Garamond',serif; font-size:26px; font-weight:400;
+  color:#5b4f47; margin-bottom:2px; line-height:1.2;
 }
-.qpc-sku{ font-size:11px; color:#bbb; font-family:monospace; margin-bottom:20px; letter-spacing:.06em; }
-.qpc-divider{ border:none; border-top:1px solid var(--border); margin:20px 0; }
-.qpc-row{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
-.qpc-row-label{ font-size:12px; color:var(--driftwood); }
-.qpc-row-value{ font-size:14px; color:var(--espresso); font-weight:500; text-align:right; }
+.qpc-sku{ font-size:10px; color:#bbb; font-family:monospace; letter-spacing:.06em; margin-bottom:10px; }
+.qpc-desc{ font-size:12px; color:#745e4d; line-height:1.55; margin-bottom:16px; }
+/* Dimensions */
+.qpc-dims-box{
+  background:#f8f7f4; border-radius:8px; padding:12px 16px; margin-bottom:14px;
+}
+.qpc-dims-row{ display:flex; gap:0; margin-top:8px; }
+.qpc-dim-col{
+  flex:1; text-align:center;
+  border-right:1px solid #ede9e2;
+  padding:4px 8px;
+}
+.qpc-dim-col:last-child{ border-right:none; }
+.qpc-dim-val{ font-size:18px; font-weight:500; color:#5b4f47; }
+.qpc-dim-lbl{ font-size:9px; color:#bd9479; text-transform:uppercase; letter-spacing:.08em; }
+/* Price */
 .qpc-price-box{
-  background:var(--walnut); border-radius:10px; padding:20px 24px;
-  display:flex; justify-content:space-between; align-items:center; margin:20px 0;
+  background:#5b4f47; border-radius:8px; padding:16px 20px;
+  display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;
 }
-.qpc-price-label{ color:rgba(255,255,255,.7); font-size:12px; margin-bottom:4px; }
+.qpc-price-label{ color:rgba(255,255,255,.65); font-size:10px; margin-bottom:3px; }
+.qpc-price-sub{ color:rgba(255,255,255,.4); font-size:9px; }
 .qpc-price-value{
-  font-family:'Cormorant Garamond',serif; font-size:42px;
-  font-weight:300; color:var(--white); line-height:1;
+  font-family:'Cormorant Garamond',serif; font-size:34px;
+  font-weight:400; color:#FFE49A; line-height:1;
 }
-.qpc-payment{
-  background:var(--linen); border-radius:8px; padding:14px 18px;
-  font-size:12px; color:var(--espresso); line-height:1.8;
+/* Payment */
+.qpc-payment{ margin-bottom:14px; }
+.qpc-payment-item{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:8px 12px; border-radius:6px; margin-bottom:6px;
+  background:#f8f7f4;
 }
-.qpc-payment-item{ display:flex; align-items:center; gap:8px; }
+.qpc-payment-item.highlight{ background:#f0f7f0; border:1px solid #c8ddc8; margin-top:2px; }
+.qpc-payment-text{ font-size:11px; color:#5b4f47; font-weight:500; }
+.qpc-payment-sub{ font-size:10px; color:#bd9479; margin-top:1px; }
+.qpc-payment-badge{
+  margin-left:auto; flex-shrink:0;
+  background:#4a7c59; color:#fff;
+  font-size:10px; font-weight:600;
+  padding:2px 8px; border-radius:10px; align-self:center;
+}
+/* Contact */
+.qpc-contact{ padding:0 28px 16px; }
+.qpc-contact-row{ display:flex; align-items:center; gap:8px; margin-bottom:5px; font-size:11px; color:#745e4d; }
+/* Footer */
 .qpc-footer{
-  background:var(--linen-dark); padding:16px 36px;
+  background:#ede9e2; padding:10px 28px;
   display:flex; justify-content:space-between; align-items:center;
 }
-.qpc-footer-info{ font-size:11px; color:var(--driftwood); line-height:1.7; }
-.qpc-footer-note{ font-size:10px; color:#bbb; text-align:right; }
+.qpc-footer-note{ font-size:9px; color:#bd9479; font-style:italic; }
+.qpc-footer-brand{ font-size:9px; color:#745e4d; letter-spacing:.1em; text-transform:uppercase; }
 .btn-png{
   display:flex; align-items:center; gap:8px; justify-content:center;
   background:var(--espresso); color:white; border:none; border-radius:7px;
@@ -1460,47 +1503,71 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
 
 <!-- HIDDEN QUOTE CARD FOR PNG EXPORT -->
 <div id="quote-png-card">
+  <!-- Header -->
   <div class="qpc-header">
     <img class="qpc-logo" id="qpc-logo-img" src="" alt="Moss">
-    <div class="qpc-header-text">
-      <div>Avda. Rivera 2157, Montevideo</div>
-      <div>@moss.uy</div>
+    <div class="qpc-header-right">
+      <div class="qpc-header-label">Cotización</div>
+      <div class="qpc-header-date" id="qpc-date"></div>
     </div>
   </div>
+  <!-- Product image -->
+  <div class="qpc-img-wrap" id="qpc-img-wrap">
+    <div id="qpc-img-inner" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </div>
+    <div class="qpc-img-badge" id="qpc-cat-badge"></div>
+  </div>
+  <!-- Body -->
   <div class="qpc-body">
-    <div class="qpc-label">Cotización</div>
-    <div class="qpc-product-name" id="qpc-name"></div>
+    <div class="qpc-label2">Código</div>
     <div class="qpc-sku" id="qpc-sku"></div>
-    <div class="qpc-row">
-      <div>
-        <div class="qpc-label">Medida</div>
-        <div class="qpc-row-value" id="qpc-dims" style="text-align:left;font-size:15px;"></div>
-      </div>
-      <div id="qpc-tap-wrap" style="display:none;">
-        <div class="qpc-label">Tapizado</div>
-        <div class="qpc-row-value">A elección del cliente</div>
+    <div class="qpc-product-name" id="qpc-name"></div>
+    <div class="qpc-desc" id="qpc-desc"></div>
+    <!-- Dimensions -->
+    <div class="qpc-dims-box">
+      <div class="qpc-label2">Medidas seleccionadas</div>
+      <div class="qpc-dims-row">
+        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-w">—</div><div class="qpc-dim-lbl">Ancho cm</div></div>
+        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-h">—</div><div class="qpc-dim-lbl">Alto cm</div></div>
+        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-d">—</div><div class="qpc-dim-lbl">Prof. cm</div></div>
       </div>
     </div>
+    <!-- Price -->
     <div class="qpc-price-box">
       <div>
         <div class="qpc-price-label">Precio de lista</div>
-        <div class="qpc-price-value" id="qpc-price"></div>
+        <div class="qpc-price-sub">Incluye mano de obra</div>
       </div>
-      <div style="color:rgba(255,255,255,.5);font-size:11px;text-align:right;line-height:1.6;">
-        Precio estimado<br>Sujeto a confirmación
-      </div>
+      <div class="qpc-price-value" id="qpc-price"></div>
     </div>
+    <!-- Payment -->
     <div class="qpc-payment">
-      <div class="qpc-payment-item">💳 &nbsp;Aceptamos tarjetas de crédito</div>
-      <div class="qpc-payment-item">💵 &nbsp;<strong>10% de descuento</strong> pagando en efectivo o transferencia</div>
+      <div class="qpc-payment-item">
+        <span style="font-size:16px;">💳</span>
+        <div><div class="qpc-payment-text">Tarjetas de crédito y débito</div><div class="qpc-payment-sub">Todas las tarjetas del mercado</div></div>
+      </div>
+      <div class="qpc-payment-item highlight">
+        <span style="font-size:16px;">💵</span>
+        <div><div class="qpc-payment-text">Efectivo o transferencia</div><div class="qpc-payment-sub" style="color:#4a7c59;">10% de descuento sobre el precio de lista</div></div>
+        <div class="qpc-payment-badge">−10%</div>
+      </div>
     </div>
   </div>
+  <!-- Divider -->
+  <div style="border-top:1px solid #ede9e2; margin:0 28px 16px;"></div>
+  <!-- Contact -->
+  <div class="qpc-contact">
+    <div class="qpc-label2" style="margin-bottom:8px;">Contacto</div>
+    <div class="qpc-contact-row"><span>📍</span> Avda. Rivera 2157, Montevideo</div>
+    <div class="qpc-contact-row"><span>✉️</span> ventas@moss.uy</div>
+    <div class="qpc-contact-row"><span>📸</span> @moss.uy</div>
+    <div class="qpc-contact-row"><span>🌐</span> moss.uy</div>
+  </div>
+  <!-- Footer -->
   <div class="qpc-footer">
-    <div class="qpc-footer-info">
-      <div>📍 Avda. Rivera 2157, Montevideo</div>
-      <div>📸 @moss.uy</div>
-    </div>
-    <div class="qpc-footer-note">moss home store</div>
+    <div class="qpc-footer-note">Precio estimado · Sujeto a confirmación de pedido</div>
+    <div class="qpc-footer-brand">moss home store</div>
   </div>
 </div>
 
@@ -2194,7 +2261,7 @@ function qmSetImg(i){
   imgWrap.innerHTML=`<img src="${lbImages[i]}" alt="" onclick="openLightbox(${i})" style="cursor:zoom-in;">`;
   document.querySelectorAll('.qm-thumb').forEach((t,j)=>t.classList.toggle('qm-thumb-active',j===i));
 }
-function selectPreset(i){const p=quoteProduct;const m=p.measures[i];document.querySelectorAll('.preset-pill').forEach((b,j)=>b.classList.toggle('sel',j===i));const d=document.getElementById('qm-preset-dims');d.style.display='block';const varCost=(m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0);
+function selectPreset(i){const p=quoteProduct;const m=p.measures[i];window._lastSelectedMeasure=m;document.querySelectorAll('.preset-pill').forEach((b,j)=>b.classList.toggle('sel',j===i));const d=document.getElementById('qm-preset-dims');d.style.display='block';const varCost=(m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0);
     const computedPrice=calcPrice(quoteProduct,m);
     d.innerHTML=`<strong>${m.name}</strong> — ${m.w}×${m.h}×${m.d} cm`+
       `<span style="color:var(--walnut);font-weight:500;margin-left:10px;">${fmt(computedPrice)}</span>`+
@@ -2299,15 +2366,33 @@ function previewSku() {
 
 
 // ===== PNG QUOTE EXPORT =====
-function populateQuoteCard(name, dimLabel, priceStr, p){
-  // Logo — reuse the same src as header logo
+function populateQuoteCard(name, dimLabel, priceStr, p, measure){
+  // Logo
   const logoSrc = document.querySelector('.logo-img').src;
   document.getElementById('qpc-logo-img').src = logoSrc;
+  // Date
+  document.getElementById('qpc-date').textContent = new Date().toLocaleDateString('es-UY');
+  // Product info
   document.getElementById('qpc-name').textContent = p.name;
-  document.getElementById('qpc-sku').textContent = p.sku ? p.sku : '';
-  document.getElementById('qpc-dims').textContent = dimLabel;
+  document.getElementById('qpc-sku').textContent = p.sku || '';
+  document.getElementById('qpc-desc').textContent = p.desc || '';
+  // Category badge
+  const badge = document.getElementById('qpc-cat-badge');
+  badge.textContent = p.cat + (p.upholstery ? ' · Tapizado' : '');
+  // Image
+  const imgInner = document.getElementById('qpc-img-inner');
+  if(p.images && p.images.length){
+    imgInner.innerHTML = '<img src="'+p.images[0]+'" style="width:100%;height:220px;object-fit:contain;padding:12px;">';
+  } else {
+    imgInner.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+  }
+  // Dimensions — parse from measure object if available, else from dimLabel
+  const m = measure || {};
+  document.getElementById('qpc-dim-w').textContent = m.w || '—';
+  document.getElementById('qpc-dim-h').textContent = m.h || '—';
+  document.getElementById('qpc-dim-d').textContent = m.d || '—';
+  // Price
   document.getElementById('qpc-price').textContent = priceStr;
-  document.getElementById('qpc-tap-wrap').style.display = p.upholstery ? 'block' : 'none';
 }
 
 async function downloadQuotePNG(){
@@ -2321,19 +2406,23 @@ async function downloadQuotePNG(){
   btn.textContent = 'Generando...';
   btn.classList.add('btn-png-generating');
 
-  populateQuoteCard(name, dimLabel, priceStr, p);
+  populateQuoteCard(name, dimLabel, priceStr, p, window._lastSelectedMeasure||null);
 
   const card = document.getElementById('quote-png-card');
   card.style.left = '-9999px';
+  card.style.top = '0';
+  card.style.display = 'block';
 
   try {
-    await new Promise(r => setTimeout(r, 300)); // wait for fonts/logo
+    // Force font load before capture
+    await document.fonts.ready;
+    await new Promise(r => setTimeout(r, 400));
     const canvas = await html2canvas(card, {
       scale: 2,
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
-      width: 640,
+      width: 520,
       logging: false,
     });
     const link = document.createElement('a');
@@ -2342,9 +2431,11 @@ async function downloadQuotePNG(){
     link.href = canvas.toDataURL('image/png');
     link.click();
     toast('PNG descargado');
+    card.style.display = '';
   } catch(e) {
     toast('Error al generar imagen: ' + e.message);
     console.error(e);
+    card.style.display = '';
   } finally {
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Descargar cotización PNG';
     btn.classList.remove('btn-png-generating');
