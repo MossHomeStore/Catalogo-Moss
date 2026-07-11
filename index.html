@@ -2381,28 +2381,46 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
   const badge = document.getElementById('qpc-cat-badge');
   badge.textContent = p.cat + (p.upholstery ? ' · Tapizado' : '');
   // Image
-  const imgInner = document.getElementById('qpc-img-inner');
+  const imgWrapEl = document.getElementById('qpc-img-wrap');
+  const imgInner  = document.getElementById('qpc-img-inner');
   if(p.images && p.images.length){
-    // Load image to get natural dimensions, then size explicitly
-    // html2canvas ignores object-fit so we must compute the right size manually
+    // Draw image onto a canvas — html2canvas renders <canvas> perfectly,
+    // while <img> with object-fit is mis-handled and causes stretching.
     await new Promise(resolve => {
       const tmp = new Image();
+      tmp.crossOrigin = 'anonymous';
       tmp.onload = () => {
-        const containerW = 496; // 520px card - 24px padding each side
-        const containerH = 196; // 220px - 24px padding
-        const ratio = tmp.naturalWidth / tmp.naturalHeight;
-        let w, h;
-        if(ratio > containerW / containerH){
-          // Image wider than container — constrain by width
-          w = containerW; h = Math.round(containerW / ratio);
+        const containerW = 520;  // full card width
+        const containerH = 220;  // img-wrap height
+        const imgRatio = tmp.naturalWidth / tmp.naturalHeight;
+        const boxRatio = containerW / containerH;
+        let drawW, drawH, drawX, drawY;
+        if(imgRatio > boxRatio){
+          // landscape: fit width, letterbox top/bottom
+          drawW = containerW;
+          drawH = Math.round(containerW / imgRatio);
+          drawX = 0;
+          drawY = Math.round((containerH - drawH) / 2);
         } else {
-          // Image taller — constrain by height
-          h = containerH; w = Math.round(containerH * ratio);
+          // portrait or square: fit height, pillarbox sides
+          drawH = containerH;
+          drawW = Math.round(containerH * imgRatio);
+          drawX = Math.round((containerW - drawW) / 2);
+          drawY = 0;
         }
-        imgInner.style.display = 'flex';
-        imgInner.style.alignItems = 'center';
-        imgInner.style.justifyContent = 'center';
-        imgInner.innerHTML = '<img src="'+p.images[0]+'" width="'+w+'" height="'+h+'" style="display:block;">';
+        const cvs = document.createElement('canvas');
+        cvs.width  = containerW;
+        cvs.height = containerH;
+        const ctx = cvs.getContext('2d');
+        // Fill background to match card linen color
+        ctx.fillStyle = '#f0ebe4';
+        ctx.fillRect(0, 0, containerW, containerH);
+        ctx.drawImage(tmp, drawX, drawY, drawW, drawH);
+        imgInner.innerHTML = '';
+        imgInner.style.cssText = 'width:100%;height:100%;';
+        imgInner.appendChild(cvs);
+        // Also make img-wrap the exact canvas size so html2canvas doesn't clip
+        imgWrapEl.style.height = containerH + 'px';
         resolve();
       };
       tmp.onerror = () => {
