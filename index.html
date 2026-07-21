@@ -1023,6 +1023,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
                 <div class="sf-result-row"><span class="sf-result-label">Costo tela (USD)</span><span class="sf-result-value" id="sfr-tela-usd">-</span></div>
                 <div class="sf-result-row"><span class="sf-result-label">Costo tela ($)</span><span class="sf-result-value" id="sfr-tela-pesos">-</span></div>
                 <div class="sf-result-row"><span class="sf-result-label">Precio sofá proporcional</span><span class="sf-result-value" id="sfr-precio-sofa">-</span></div>
+                <div class="sf-result-row"><span class="sf-result-label">Factor aplicado</span><span class="sf-result-value" id="sfr-factor-used" style="color:var(--driftwood);font-size:12px;">-</span></div>
                 <div class="sf-result-row" id="sfr-funda-row" style="display:none;"><span class="sf-result-label">Funda</span><span class="sf-result-value" id="sfr-funda">-</span></div>
                 <div class="sf-total"><span class="sf-total-label">Costo Total</span><span class="sf-total-value" id="sfr-total">$0</span></div>
                 <div class="sf-lista"><span class="sf-lista-label">Precio de Lista</span><span class="sf-lista-value" id="sfr-lista">$0</span></div>
@@ -1058,7 +1059,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
           <button class="btn-primary" onclick="sfAbrirModalSofa()">+ Agregar</button>
         </div>
         <div class="sf-table-wrap"><table class="sf-table">
-          <thead><tr><th>Nombre</th><th>Proveedor</th><th>Largo ref.</th><th>Precio ref.</th><th>Tela ref.</th><th>Ancho tela</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Proveedor</th><th>Largo ref.</th><th>Precio ref.</th><th>Tela ref.</th><th>Ancho tela</th><th>Factor</th><th>Acciones</th></tr></thead>
           <tbody id="sf-sofas-tbody"></tbody>
         </table></div>
       </div>
@@ -1111,6 +1112,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
         <div class="form-row-2">
           <div class="form-group"><label class="form-label">Tela ref. (m)</label><input class="form-input" type="number" id="sf-sofa-tela"></div>
           <div class="form-group"><label class="form-label">Ancho tela ref. (m)</label><input class="form-input" type="number" id="sf-sofa-ancho" placeholder="1.4"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Factor de precio <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--driftwood);">(vacío = usa el factor global del catálogo)</span></label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input class="form-input" type="number" id="sf-sofa-factor" placeholder="Ej: 2" min="1" step="0.1" style="width:120px;">
+            <span style="font-size:12px;color:var(--driftwood);" id="sf-factor-hint">Factor global actual: <strong id="sf-factor-global-val"></strong></span>
+          </div>
         </div>
         <div class="form-group"><label class="form-label">Descripción</label><textarea class="form-textarea" id="sf-sofa-desc"></textarea></div>
         <div class="flex-end">
@@ -2656,6 +2664,7 @@ function sfRenderSofas(){
       '<td data-label="Precio ref.">$'+Number(s.precioRef||0).toLocaleString('es-UY')+'</td>'+
       '<td data-label="Tela ref.">'+Number(s.telaRef||0).toLocaleString('es-UY')+' m</td>'+
       '<td data-label="Ancho tela">'+Number(s.anchoRef||0).toLocaleString('es-UY')+' m</td>'+
+      '<td data-label="Factor">'+(s.factor?'×'+s.factor:'<span style="color:#bbb;font-size:11px;">global (×'+cfg.factor+')</span>')+'</td>'+
       '<td style="white-space:nowrap;">'+
         '<button class="btn-sm btn-sm-edit" onclick="sfAbrirModalSofa(&quot;'+s.id+'&quot;)">Editar</button>'+
         '<button class="btn-sm btn-sm-del" style="margin-left:4px;" onclick="sfEliminarSofa(&quot;'+s.id+'&quot;)">Eliminar</button>'+
@@ -2714,7 +2723,11 @@ function sfAbrirModalSofa(id){
   document.getElementById('sf-sofa-precio').value = s?s.precioRef:'';
   document.getElementById('sf-sofa-tela').value = s?s.telaRef:'';
   document.getElementById('sf-sofa-ancho').value = s?(s.anchoRef||''):'';
+  document.getElementById('sf-sofa-factor').value = s?(s.factor||''):'';
   document.getElementById('sf-sofa-desc').value = s?(s.desc||''):'';
+  // Show current global factor as hint
+  const gv = document.getElementById('sf-factor-global-val');
+  if(gv) gv.textContent = '×' + cfg.factor;
   document.getElementById('sf-modal-sofa-title').textContent = s?'Editar modelo':'Agregar modelo';
   document.getElementById('sf-modal-sofa').classList.add('open');
 }
@@ -2725,8 +2738,9 @@ async function sfGuardarSofa(){
   const tr=parseFloat(document.getElementById('sf-sofa-tela').value);
   const ar=parseFloat(document.getElementById('sf-sofa-ancho').value);
   if(!n||isNaN(lr)||isNaN(pr)||isNaN(tr)||isNaN(ar)){toast('Completá todos los campos');return;}
+  const fv=parseFloat(document.getElementById('sf-sofa-factor').value);
   const id=document.getElementById('sf-sofa-edit-id').value;
-  const obj={id:id||sfUid(),nombre:n,proveedor:document.getElementById('sf-sofa-prov').value,largoRef:lr,precioRef:pr,telaRef:tr,anchoRef:ar,desc:document.getElementById('sf-sofa-desc').value.trim()};
+  const obj={id:id||sfUid(),nombre:n,proveedor:document.getElementById('sf-sofa-prov').value,largoRef:lr,precioRef:pr,telaRef:tr,anchoRef:ar,factor:isNaN(fv)?null:fv,desc:document.getElementById('sf-sofa-desc').value.trim()};
   if(id){const i=sfSofas.findIndex(x=>x.id===id);sfSofas[i]=obj;}else sfSofas.push(obj);
   await sfSaveCol(SF_COLS.sofas,[obj]);
   closeModal('sf-modal-sofa');sfRenderAll();toast('Modelo guardado');
@@ -2844,7 +2858,9 @@ function sfCalc(){
   const conF=document.getElementById('sf-cot-funda').checked;
   const costF=conF?(parseFloat(document.getElementById('sf-funda-precio').value)||0):0;
   const costoTotal=precioSofa+costoTelaPesos+costF;
-  const precioLista=sfRedondear(costoTotal*2);
+  // Use model-specific factor if set, otherwise use catalog global factor
+  const sfFactor = (sofa.factor && sofa.factor > 0) ? sofa.factor : (cfg.factor || 2);
+  const precioLista=sfRedondear(costoTotal*sfFactor);
 
   document.getElementById('sfr-cliente').textContent=document.getElementById('sf-cliente').value.trim()||'—';
   document.getElementById('sfr-modelo').textContent=sofa.nombre;
@@ -2859,6 +2875,9 @@ function sfCalc(){
   if(conF) document.getElementById('sfr-funda').textContent='$'+sfFmt(costF);
   document.getElementById('sfr-total').textContent='$'+sfFmt(costoTotal);
   document.getElementById('sfr-lista').textContent='$'+Math.round(precioLista).toLocaleString('es-UY');
+  // Show which factor was applied
+  const sfFactorEl=document.getElementById('sfr-factor-used');
+  if(sfFactorEl) sfFactorEl.textContent='×'+sfFactor+(sofa.factor?'':' (factor global)');
   document.getElementById('sf-resultado').style.display='block';
   document.getElementById('sf-empty').style.display='none';
 
@@ -2917,6 +2936,7 @@ async function sfGuardarCot(){
   const conF=document.getElementById('sf-cot-funda').checked;
   const costF=conF?(parseFloat(document.getElementById('sf-funda-precio').value)||0):0;
   const costoTotal=precioSofa+costoTelaPesos+costF;
+  const sfFactor2 = (sofa.factor && sofa.factor > 0) ? sofa.factor : (cfg.factor || 2);
   const cot={
     id:sfUid(),ts:Date.now(),fecha:new Date().toLocaleDateString('es-UY'),
     cliente:document.getElementById('sf-cliente').value.trim()||'—',
@@ -2924,7 +2944,7 @@ async function sfGuardarCot(){
     metrosTela:metrosTela.toFixed(2),costoTelaUsd:costoTelaUsd.toFixed(2),
     costoTelaPesos:costoTelaPesos.toFixed(2),tc,
     precioSofa:precioSofa.toFixed(2),conFunda:conF,costFunda:costF,
-    costoTotal:costoTotal.toFixed(2),precioLista:sfRedondear(costoTotal*2)
+    costoTotal:costoTotal.toFixed(2),precioLista:sfRedondear(costoTotal*sfFactor2)
   };
   sfCotizaciones.unshift(cot);
   if(sfCotizaciones.length>100)sfCotizaciones.pop();
