@@ -2274,7 +2274,20 @@ function selectPreset(i){const p=quoteProduct;const m=p.measures[i];window._last
     d.innerHTML=`<strong>${m.name}</strong> — ${m.w}×${m.h}×${m.d} cm`+
       `<span style="color:var(--walnut);font-weight:500;margin-left:10px;">${fmt(computedPrice)}</span>`+
       '';showQuoteResult(m.w,m.h,m.d,m.name,`${m.w}×${m.h}×${m.d} cm`,false,m);}
-function switchQuoteTab(tab){quoteMode=tab;document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===(tab==='preset'?0:1)));document.getElementById('qt-preset').style.display=tab==='preset'?'block':'none';document.getElementById('qt-custom').style.display=tab==='custom'?'block':'none';document.getElementById('qm-result').style.display='none';document.getElementById('qm-wapp-wrap').style.display='none';}
+function switchQuoteTab(tab){
+  quoteMode=tab;
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===(tab==='preset'?0:1)));
+  document.getElementById('qt-preset').style.display=tab==='preset'?'block':'none';
+  document.getElementById('qt-custom').style.display=tab==='custom'?'block':'none';
+  if(tab==='custom'){
+    // If fields already have values, show the result immediately
+    calcCustom();
+  } else {
+    // Switching to preset — hide result until user picks a preset
+    document.getElementById('qm-result').style.display='none';
+    document.getElementById('qm-wapp-wrap').style.display='none';
+  }
+}
 function calcCustom(){
   const w=parseFloat(document.getElementById('qc-w').value)||0;
   const h=parseFloat(document.getElementById('qc-h').value)||0;
@@ -2311,9 +2324,9 @@ function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure){
       price = 0;
 
     } else if(usable.length === 1){
-      // Only one reference — fall back to simple rule of 3
+      // Only one reference — square root of surface ratio (softer scaling)
       const ref = usable[0];
-      price = ref.price * (surf / ref.surf);
+      price = ref.price * Math.sqrt(surf / ref.surf);
 
     } else {
       // Find the two variants that bracket the requested surface
