@@ -2307,81 +2307,65 @@ function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure){
     // Preset selected: use manual price if set, otherwise calculate from variant costs
     price = calcPrice(p, refMeasure);
   } else {
-    const TOL = 5; // ±5cm tolerance — within this range a dimension is "unchanged"
+    const TOL = 5; // ±5cm — used to detect which dimensions vary across catalog variants
 
     // Get all variants with a usable price
     const usable = (p.measures||[])
-      .map(m => ({
-        m,
-        price: m.price && m.price > 0 ? m.price : calcPrice(p, m)
-      }))
+      .map(m => ({ m, price: m.price && m.price > 0 ? m.price : calcPrice(p, m) }))
       .filter(v => v.m.w > 0 && v.m.h > 0 && v.m.d > 0 && v.price > 0);
 
     if(usable.length === 0){
       price = 0;
 
+    } else if(usable.length === 1){
+      // Single variant — square root of volume ratio (soft scaling)
+      const ref = usable[0].m;
+      const volRef = ref.w * ref.h * ref.d;
+      const volNew = w * h * d;
+      price = usable[0].price * Math.sqrt(volRef > 0 ? volNew / volRef : 1);
+
     } else {
-      // Find the closest reference variant (by Euclidean distance in 3D)
-      const closest = usable.reduce((best, v) => {
-        const dist = Math.pow(v.m.w - w, 2) + Math.pow(v.m.h - h, 2) + Math.pow(v.m.d - d, 2);
-        return dist < best.dist ? { v, dist } : best;
-      }, { v: usable[0], dist: Infinity }).v;
+      // Determine which dimension(s) vary across ALL catalog variants
+      // (not from the requested size — that's the bug we're fixing)
+      const wRange = Math.max(...usable.map(v=>v.m.w)) - Math.min(...usable.map(v=>v.m.w));
+      const hRange = Math.max(...usable.map(v=>v.m.h)) - Math.min(...usable.map(v=>v.m.h));
+      const dRange = Math.max(...usable.map(v=>v.m.d)) - Math.min(...usable.map(v=>v.m.d));
+      const dimsVary = (wRange > TOL ? 1 : 0) + (hRange > TOL ? 1 : 0) + (dRange > TOL ? 1 : 0);
 
-      // Count how many dimensions vary beyond tolerance vs the closest reference
-      const ref = closest.m;
-      const wVaries = Math.abs(w - ref.w) > TOL;
-      const hVaries = Math.abs(h - ref.h) > TOL;
-      const dVaries = Math.abs(d - ref.d) > TOL;
-      const varyCount = [wVaries, hVaries, dVaries].filter(Boolean).length;
-
-      if(varyCount === 0){
-        // All dimensions within tolerance — use reference price directly
-        price = closest.price;
-
+      // Choose scaling metric based on which dimensions vary in the catalog
+      let metricFn;
+      if(dimsVary === 0){
+        // All variants same size — return average price
+        price = usable.reduce((s,v) => s + v.price, 0) / usable.length;
+      } else if(dimsVary === 1){
+        // Exactly one dimension varies — scale by that dimension
+        if(wRange > TOL)      metricFn = (v, req) => req ? w : v.m.w;
+        else if(hRange > TOL) metricFn = (v, req) => req ? h : v.m.h;
+        else                  metricFn = (v, req) => req ? d : v.m.d;
       } else {
-        // Build the scaling metric based on how many dimensions vary:
-        // 1 dimension varies  → scale by that dimension only (linear)
-        // 2-3 dimensions vary → scale by volume (w × h × d)
-        let refMetric, newMetric;
+        // 2 or 3 dimensions vary — scale by volume
+        metricFn = (v, req) => req ? w*h*d : v.m.w*v.m.h*v.m.d;
+      }
 
-        if(varyCount === 1){
-          if(wVaries)      { refMetric = ref.w; newMetric = w; }
-          else if(hVaries) { refMetric = ref.h; newMetric = h; }
-          else             { refMetric = ref.d; newMetric = d; }
-        } else {
-          // 2 or 3 dimensions vary → use volume
-          refMetric = ref.w * ref.h * ref.d;
-          newMetric = w * h * d;
+      if(metricFn){
+        const reqMetric = metricFn(null, true);
+        const sorted = usable
+          .map(v => ({ v, metric: metricFn(v, false) }))
+          .sort((a, b) => a.metric - b.metric);
+
+        // Find the two variants that bracket the requested metric
+        let lo = sorted[0], hi = sorted[sorted.length - 1];
+        for(let i = 0; i < sorted.length - 1; i++){
+          if(sorted[i].metric <= reqMetric && sorted[i+1].metric >= reqMetric){
+            lo = sorted[i]; hi = sorted[i+1]; break;
+          }
         }
 
-        if(usable.length === 1 || refMetric <= 0){
-          // Single variant — square root scaling (softer than linear)
-          price = closest.price * Math.sqrt(newMetric / refMetric);
-
+        if(lo.metric === hi.metric){
+          price = lo.v.price;
         } else {
-          // Multiple variants — interpolate between the two that bracket the metric
-          const sorted = usable
-            .map(v => ({
-              v,
-              metric: varyCount === 1
-                ? (wVaries ? v.m.w : hVaries ? v.m.h : v.m.d)
-                : (v.m.w * v.m.h * v.m.d)
-            }))
-            .sort((a, b) => a.metric - b.metric);
-
-          let lo = sorted[0], hi = sorted[sorted.length - 1];
-          for(let i = 0; i < sorted.length - 1; i++){
-            if(sorted[i].metric <= newMetric && sorted[i+1].metric >= newMetric){
-              lo = sorted[i]; hi = sorted[i+1]; break;
-            }
-          }
-
-          if(lo.metric === hi.metric){
-            price = lo.v.price;
-          } else {
-            const t = (newMetric - lo.metric) / (hi.metric - lo.metric);
-            price = lo.v.price + (hi.v.price - lo.v.price) * t;
-          }
+          const t = (reqMetric - lo.metric) / (hi.metric - lo.metric);
+          price = lo.v.price + (hi.v.price - lo.v.price) * t;
         }
       }
     }
