@@ -1345,7 +1345,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
             <div class="dim-wrap"><div class="dim-label">Alto</div><input class="dim-input" type="number" id="qc-h" placeholder="cm" oninput="calcCustom()"></div>
             <div class="dim-wrap"><div class="dim-label">Prof.</div><input class="dim-input" type="number" id="qc-d" placeholder="cm" oninput="calcCustom()"></div>
           </div>
-          <div class="quote-hint" id="quote-hint-text" style="font-size:11px;">Precio proporcional a la superficie (ancho × prof.)</div>
         </div>
 
         <div class="quote-result-box" id="qm-result" style="display:none;">
@@ -2276,7 +2275,41 @@ function selectPreset(i){const p=quoteProduct;const m=p.measures[i];window._last
       `<span style="color:var(--walnut);font-weight:500;margin-left:10px;">${fmt(computedPrice)}</span>`+
       '';showQuoteResult(m.w,m.h,m.d,m.name,`${m.w}×${m.h}×${m.d} cm`,false,m);}
 function switchQuoteTab(tab){quoteMode=tab;document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===(tab==='preset'?0:1)));document.getElementById('qt-preset').style.display=tab==='preset'?'block':'none';document.getElementById('qt-custom').style.display=tab==='custom'?'block':'none';document.getElementById('qm-result').style.display='none';document.getElementById('qm-wapp-wrap').style.display='none';}
-function calcCustom(){const w=parseFloat(document.getElementById('qc-w').value)||0;const h=parseFloat(document.getElementById('qc-h').value)||0;const d=parseFloat(document.getElementById('qc-d').value)||0;if(!w||!h||!d){document.getElementById('qm-result').style.display='none';document.getElementById('qm-wapp-wrap').style.display='none';return;}showQuoteResult(w,h,d,'Medida personalizada',`${w}×${h}×${d} cm`,true,null);}
+function calcCustom(){
+  const w=parseFloat(document.getElementById('qc-w').value)||0;
+  const h=parseFloat(document.getElementById('qc-h').value)||0;
+  const d=parseFloat(document.getElementById('qc-d').value)||0;
+  if(!w||!h||!d){
+    document.getElementById('qm-result').style.display='none';
+    document.getElementById('qm-wapp-wrap').style.display='none';
+    return;
+  }
+  // Show which variants will be used as interpolation reference
+  const p = quoteProduct;
+  const surf = w * d;
+  const usable = (p.measures||[])
+    .map(m=>({m, surf:m.w*m.d, price:m.price&&m.price>0?m.price:calcPrice(p,m)}))
+    .filter(v=>v.surf>0&&v.price>0)
+    .sort((a,b)=>a.surf-b.surf);
+  const hint = document.getElementById('quote-hint-text');
+  if(usable.length >= 2){
+    let lo=usable[0], hi=usable[usable.length-1];
+    for(let i=0;i<usable.length-1;i++){
+      if(usable[i].surf<=surf&&usable[i+1].surf>=surf){lo=usable[i];hi=usable[i+1];break;}
+    }
+    const isExtrapolating = surf < usable[0].surf || surf > usable[usable.length-1].surf;
+    hint.textContent = isExtrapolating
+      ? 'Precio extrapolado desde ' + lo.m.name + ' y ' + hi.m.name + ' (fuera del rango de variantes)'
+      : 'Precio interpolado entre ' + lo.m.name + ' (' + lo.m.w + '×' + lo.m.d + ') y ' + hi.m.name + ' (' + hi.m.w + '×' + hi.m.d + ')';
+    hint.style.color = isExtrapolating ? '#c4853a' : 'var(--driftwood)';
+  } else if(usable.length === 1){
+    hint.textContent = 'Precio proporcional a ' + usable[0].m.name + ' (única variante de referencia)';
+    hint.style.color = 'var(--driftwood)';
+  } else {
+    hint.textContent = '';
+  }
+  showQuoteResult(w,h,d,'Medida personalizada',w+'×'+h+'×'+d+' cm',true,null);
+}
 function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure){
   const p=quoteProduct;
   let price;
@@ -2285,26 +2318,50 @@ function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure){
     // Preset selected: use manual price if set, otherwise calculate from variant costs
     price = calcPrice(p, refMeasure);
   } else {
-    // Custom dimensions: find closest preset by surface area as reference
-    const surf = w * d; // surface = ancho × profundidad
-    let refM = p.measures && p.measures.length ? p.measures[0] : null;
-    // Pick preset with a manual price if available, else use first
-    if(p.measures && p.measures.length){
-      const withPrice = p.measures.filter(m=>m.price&&m.price>0);
-      if(withPrice.length){
-        // find closest by surface
-        refM = withPrice.reduce((best,m)=>Math.abs(m.w*m.d-surf)<Math.abs(best.w*best.d-surf)?m:best, withPrice[0]);
+    // Custom dimensions: interpolate between the two nearest variants by surface
+    const surf = w * d; // ancho × profundidad
+
+    // Get all variants that have a usable price, sorted by surface
+    const usable = (p.measures||[])
+      .map(m => ({
+        m,
+        surf: m.w * m.d,
+        price: m.price && m.price > 0 ? m.price : calcPrice(p, m)
+      }))
+      .filter(v => v.surf > 0 && v.price > 0)
+      .sort((a,b) => a.surf - b.surf);
+
+    if(usable.length === 0){
+      price = 0;
+
+    } else if(usable.length === 1){
+      // Only one reference — fall back to simple rule of 3
+      const ref = usable[0];
+      price = ref.price * (surf / ref.surf);
+
+    } else {
+      // Find the two variants that bracket the requested surface
+      // (one smaller, one larger — or both on the same side if out of range)
+      let lo = usable[0], hi = usable[usable.length - 1];
+      for(let i = 0; i < usable.length - 1; i++){
+        if(usable[i].surf <= surf && usable[i+1].surf >= surf){
+          lo = usable[i];
+          hi = usable[i+1];
+          break;
+        }
+      }
+
+      if(lo.surf === hi.surf){
+        // Identical surfaces — use directly
+        price = lo.price;
+      } else {
+        const t = (surf - lo.surf) / (hi.surf - lo.surf);
+        price = lo.price + (hi.price - lo.price) * t;
+
       }
     }
-    if(refM){
-      const refSurf = refM.w * refM.d;
-      // Get reference price: manual price or calculate from variant costs
-      let refPrice = refM.price && refM.price > 0 ? refM.price : calcPrice(p, refM);
-      // Rule of 3 on surface (ancho × profundidad)
-      price = refSurf > 0 ? refPrice * (surf / refSurf) : refPrice;
-    } else {
-      price = calcPrice(p, null);
-    }
+
+    price = price > 0 ? price : 0;
   }
 const priceStr=price>0?fmt(price):'—';document.getElementById('qr-product').textContent=p.name;document.getElementById('qr-dims').textContent=(name&&name!==p.name?name+' — ':'')+dimLabel;document.getElementById('qr-price').textContent=priceStr;document.getElementById('qm-result').style.display='flex';document.getElementById('qm-wapp-wrap').style.display='block';const tap=p.upholstery?'\n🧵 *Tapizado:* a elección del cliente':'';const web=MOSS_WEB?`\n🌐 ${MOSS_WEB}`:'';const skuLine=p.sku?`🏷️ *Código:* ${p.sku}\n`:'';const varLabel=name&&name!==p.name?`${name} — `:'';const msg=encodeURIComponent(`*Cotización Moss Home Store*\n─────────────────────\n🪑 *Producto:* ${p.name}\n${skuLine}📐 *Medida:* ${varLabel}${dimLabel}${tap}\n💰 *Precio de lista:* ${priceStr}\n─────────────────────\n💳 Aceptamos tarjetas de crédito\n💵 *10% de descuento* pagando en efectivo o transferencia\n─────────────────────\n📍 ${MOSS_ADDR}\n📸 Instagram: ${MOSS_IG}${web}\n\n_Precio estimado. Sujeto a confirmación de pedido._`);document.getElementById('qm-wapp-link').href=`https://wa.me/?text=${msg}`;}
 function copyQuoteTxt(){const prod=document.getElementById('qr-product').textContent;const dims=document.getElementById('qr-dims').textContent;const price=document.getElementById('qr-price').textContent;if(!prod){toast('Seleccioná una medida primero');return;}const p=quoteProduct;const tap=p.upholstery?'\n🧵 Tapizado: a elección del cliente':'';const web=MOSS_WEB?`\n🌐 ${MOSS_WEB}`:'';const skuTxt=p.sku?`🏷️ Código: ${p.sku}\n`:'';const copyProd=quoteProduct?quoteProduct.name:prod;navigator.clipboard.writeText(`*Cotización Moss Home Store*\n─────────────────────\n🪑 Producto: ${copyProd}\n${skuTxt}📐 Medida: ${dims}${tap}\n💰 Precio de lista: ${price}\n─────────────────────\n💳 Aceptamos tarjetas de crédito\n💵 *10% de descuento* pagando en efectivo o transferencia\n─────────────────────\n📍 ${MOSS_ADDR}\n📸 Instagram: ${MOSS_IG}${web}\n\n_Precio estimado. Sujeto a confirmación de pedido._`).then(()=>toast('Cotización copiada al portapapeles'));}
