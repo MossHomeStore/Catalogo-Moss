@@ -2284,30 +2284,6 @@ function calcCustom(){
     document.getElementById('qm-wapp-wrap').style.display='none';
     return;
   }
-  // Show which variants will be used as interpolation reference
-  const p = quoteProduct;
-  const surf = w * d;
-  const usable = (p.measures||[])
-    .map(m=>({m, surf:m.w*m.d, price:m.price&&m.price>0?m.price:calcPrice(p,m)}))
-    .filter(v=>v.surf>0&&v.price>0)
-    .sort((a,b)=>a.surf-b.surf);
-  const hint = document.getElementById('quote-hint-text');
-  if(usable.length >= 2){
-    let lo=usable[0], hi=usable[usable.length-1];
-    for(let i=0;i<usable.length-1;i++){
-      if(usable[i].surf<=surf&&usable[i+1].surf>=surf){lo=usable[i];hi=usable[i+1];break;}
-    }
-    const isExtrapolating = surf < usable[0].surf || surf > usable[usable.length-1].surf;
-    hint.textContent = isExtrapolating
-      ? 'Precio extrapolado desde ' + lo.m.name + ' y ' + hi.m.name + ' (fuera del rango de variantes)'
-      : 'Precio interpolado entre ' + lo.m.name + ' (' + lo.m.w + '×' + lo.m.d + ') y ' + hi.m.name + ' (' + hi.m.w + '×' + hi.m.d + ')';
-    hint.style.color = isExtrapolating ? '#c4853a' : 'var(--driftwood)';
-  } else if(usable.length === 1){
-    hint.textContent = 'Precio proporcional a ' + usable[0].m.name + ' (única variante de referencia)';
-    hint.style.color = 'var(--driftwood)';
-  } else {
-    hint.textContent = '';
-  }
   showQuoteResult(w,h,d,'Medida personalizada',w+'×'+h+'×'+d+' cm',true,null);
 }
 function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure){
