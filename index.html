@@ -1592,6 +1592,7 @@ let cfg        = {"factor":2.5,"currency":"$"};
 const ADMIN_EMAILS = ['ventas@moss.uy'];
 let adminPwd = 'MossAdmin2024'; // kept for legacy, not used for auth
 let isAdmin=false,currentCat='all',editingId=null,tempImgs=[],tempMeasures=[],sortBy='name',sortDir='asc';
+let _quoteW=0,_quoteH=0,_quoteD=0; // current quote dimensions
 let filterTapizado='all',filterFotos='all',filterPrecioMin=0,filterPrecioMax=0;
 let lbImages=[],lbIdx=0,quoteProduct=null,quoteMode='preset';
 
@@ -2269,7 +2270,7 @@ function qmSetImg(i){
   imgWrap.innerHTML=`<img src="${lbImages[i]}" alt="" onclick="openLightbox(${i})" style="cursor:zoom-in;">`;
   document.querySelectorAll('.qm-thumb').forEach((t,j)=>t.classList.toggle('qm-thumb-active',j===i));
 }
-function selectPreset(i){const p=quoteProduct;const m=p.measures[i];window._lastSelectedMeasure=m;document.querySelectorAll('.preset-pill').forEach((b,j)=>b.classList.toggle('sel',j===i));const d=document.getElementById('qm-preset-dims');d.style.display='block';const varCost=(m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0);
+function selectPreset(i){const p=quoteProduct;const m=p.measures[i];window._lastSelectedMeasure=m;_quoteW=m.w||0;_quoteH=m.h||0;_quoteD=m.d||0;document.querySelectorAll('.preset-pill').forEach((b,j)=>b.classList.toggle('sel',j===i));const d=document.getElementById('qm-preset-dims');d.style.display='block';const varCost=(m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0);
     const computedPrice=calcPrice(quoteProduct,m);
     d.innerHTML=`<strong>${m.name}</strong> — ${m.w}×${m.h}×${m.d} cm`+
       `<span style="color:var(--walnut);font-weight:500;margin-left:10px;">${fmt(computedPrice)}</span>`+
@@ -2297,6 +2298,8 @@ function calcCustom(){
     document.getElementById('qm-wapp-wrap').style.display='none';
     return;
   }
+  _quoteW=w; _quoteH=h; _quoteD=d;
+  window._lastSelectedMeasure=null;
   showQuoteResult(w,h,d,'Medida personalizada',w+'×'+h+'×'+d+' cm',true,null);
 }
 function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure){
@@ -2530,11 +2533,10 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
   } else {
     imgInner.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   }
-  // Dimensions — parse from measure object if available, else from dimLabel
-  const m = measure || {};
-  document.getElementById('qpc-dim-w').textContent = m.w || '—';
-  document.getElementById('qpc-dim-h').textContent = m.h || '—';
-  document.getElementById('qpc-dim-d').textContent = m.d || '—';
+  // Dimensions — use globally stored current quote dimensions (always up to date)
+  document.getElementById('qpc-dim-w').textContent = _quoteW || '—';
+  document.getElementById('qpc-dim-h').textContent = _quoteH || '—';
+  document.getElementById('qpc-dim-d').textContent = _quoteD || '—';
   // Price
   document.getElementById('qpc-price').textContent = priceStr;
 }
