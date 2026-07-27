@@ -679,9 +679,9 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;}
 /* ── Mobile: stack vertically, image on top ── */
 @media(max-width:720px){
   .qm-modal{
-    max-height:95vh!important; border-radius:16px 16px 0 0!important;
+    height:calc(100vh - 48px); max-height:calc(100vh - 48px)!important;
+    border-radius:0 0 16px 16px!important;
     display:flex; flex-direction:column;
-    /* Allow inner scroll, block outer */
     overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
   }
@@ -700,22 +700,22 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;}
     overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
   }
-  /* X button: always visible at top-right, high z-index, clear background */
+  /* X button: top-right, just below header bar, always visible */
   .qm-modal > .modal-close{
     position:fixed;
     top:8px; right:8px;
-    width:36px; height:36px;
+    width:40px; height:40px;
     display:flex !important; align-items:center; justify-content:center;
     background:var(--white);
     border-radius:50%;
-    font-size:20px;
-    z-index:500;
+    font-size:22px;
+    z-index:600;
     border:1px solid var(--border);
-    box-shadow:0 2px 8px rgba(0,0,0,.15);
+    box-shadow:0 2px 10px rgba(0,0,0,.2);
     color:var(--espresso);
   }
-  #quote-modal.modal-overlay{ align-items:flex-end!important; padding:0; }
-  #quote-modal .modal{ margin:0!important; width:100%; border-radius:16px 16px 0 0; }
+  #quote-modal.modal-overlay{ align-items:flex-start!important; padding:0; padding-top:48px; }
+  #quote-modal .modal{ margin:0!important; width:100%; border-radius:0 0 16px 16px; max-height:calc(100vh - 48px); overflow:hidden; }
 }
 @media(max-width:420px){
   .qm-img-wrap{ min-height:180px; max-height:32vh; }
@@ -1923,6 +1923,8 @@ function requireAdmin(view){
   if(isAdmin){showView(view);return;}
   const ls=document.getElementById('login-screen');
   ls.classList.add('visible');ls.style.display='flex';
+  window._scrollY = window.scrollY;
+  document.body.style.top = '-' + window._scrollY + 'px';
   document.body.classList.add('modal-open');
   document.getElementById('login-error').classList.remove('show');
   window._pv=view;
@@ -1937,11 +1939,13 @@ async function doGoogleLogin(){
       isAdmin = true;
       const ls=document.getElementById('login-screen');
       ls.classList.remove('visible');ls.style.display='none';
+      // Switch nav: hide public, show admin
+      document.getElementById('nav-public').style.display='none';
+      document.getElementById('nav-admin').style.display='flex';
+      document.getElementById('btn-login').style.display='none';
       document.getElementById('admin-indicator').classList.add('visible');
       document.getElementById('btn-new-product').style.display='flex';
       const bpa=document.getElementById('btn-price-adj');if(bpa)bpa.style.display='';
-      document.getElementById('nav-import').style.display='';
-      document.getElementById('nav-sofas').style.display='';
       document.getElementById('admin-email').textContent = email;
       if(window._pv){showView(window._pv);window._pv=null;}
       toast('Sesión iniciada como ' + email);
@@ -2115,7 +2119,10 @@ function openProductModal(id=null){editingId=id!=null?+id:null;tempImgs=[];tempM
     if(catEl.value!==p.cat){ categories.push(p.cat); catEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join(''); catEl.value=p.cat; }tempImgs=[...(p.images||[])];tempMeasures=(p.measures||[]).map(m=>({...m}));renderMeasures();renderThumbsForm();updatePriceBar();}else{document.getElementById('form-modal-title').textContent='Nuevo producto';['f-name','f-sku','f-desc','f-factor'].forEach(i=>document.getElementById(i).value='');document.getElementById('f-upholstery').value='no';
     // Refresh category select
     const newCatEl=document.getElementById('f-cat');
-    if(newCatEl) newCatEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join('');}document.getElementById('product-modal').classList.add('open');}
+    if(newCatEl) newCatEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join('');}window._scrollY = window.scrollY;
+  document.body.style.top = '-' + window._scrollY + 'px';
+  document.body.classList.add('modal-open');
+  document.getElementById('product-modal').classList.add('open');}
 function renderMeasures(){
   const hasUpholstery = document.getElementById('f-upholstery').value === 'si';
   const factor = parseFloat(document.getElementById('f-factor').value)||cfg.factor;
@@ -2315,6 +2322,8 @@ function openQuote(id){
   window._lastSelectedMeasure=null;
   switchQuoteTab('preset');
   document.getElementById('quote-modal').classList.add('open');
+  window._scrollY = window.scrollY;
+  document.body.style.top = '-' + window._scrollY + 'px';
   document.body.classList.add('modal-open');
 }
 function qmSetImg(i){
@@ -2477,7 +2486,14 @@ function addCategory(){const v=document.getElementById('new-cat-input').value.tr
 function removeCat(i){if(products.some(p=>p.cat===categories[i])){toast('No se puede eliminar: hay productos en esta categoría');return;}if(!confirm(`¿Eliminar la categoría "${categories[i]}"?`))return;categories.splice(i,1);save();renderCats();renderSettings();toast('Categoría eliminada');}
 
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-overlay').classList.toggle('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  if(!document.querySelector('.modal-overlay.open')){
+    document.body.classList.remove('modal-open');
+    document.body.style.top = '';
+    window.scrollTo(0, window._scrollY || 0);
+  }
+}
 document.querySelectorAll('.modal-overlay').forEach(el=>{el.addEventListener('click',function(e){if(e.target===this)closeModal(this.id);});});
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('show'),2800);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){['quote-modal','product-modal'].forEach(id=>{if(document.getElementById(id).classList.contains('open'))closeModal(id);});closeLightbox();closeLogin();}if(document.getElementById('lightbox').classList.contains('open')){if(e.key==='ArrowLeft')lbNav(-1);if(e.key==='ArrowRight')lbNav(1);}});
@@ -2893,6 +2909,9 @@ function sfAbrirModalSofa(id){
   const gv = document.getElementById('sf-factor-global-val');
   if(gv) gv.textContent = '×' + cfg.factor;
   document.getElementById('sf-modal-sofa-title').textContent = s?'Editar modelo':'Agregar modelo';
+  window._scrollY = window.scrollY;
+  document.body.style.top = '-' + window._scrollY + 'px';
+  document.body.classList.add('modal-open');
   document.getElementById('sf-modal-sofa').classList.add('open');
 }
 async function sfGuardarSofa(){
@@ -2927,6 +2946,9 @@ function sfAbrirModalTela(id){
   document.getElementById('sf-tela-precio').value=t?t.precio:'';
   document.getElementById('sf-tela-desc').value=t?(t.desc||''):'';
   document.getElementById('sf-modal-tela-title').textContent=t?'Editar tela':'Agregar tela';
+  window._scrollY = window.scrollY;
+  document.body.style.top = '-' + window._scrollY + 'px';
+  document.body.classList.add('modal-open');
   document.getElementById('sf-modal-tela').classList.add('open');
 }
 async function sfGuardarTela(){
@@ -2957,6 +2979,9 @@ function sfAbrirModalProv(type,id){
     const el=document.getElementById('sf-prov-'+f);if(el)el.value=p?(p[f]||''):'';
   });
   document.getElementById('sf-modal-prov-title').textContent=(p?'Editar':'Agregar')+' proveedor de '+(type==='tela'?'telas':'sofás');
+  window._scrollY = window.scrollY;
+  document.body.style.top = '-' + window._scrollY + 'px';
+  document.body.classList.add('modal-open');
   document.getElementById('sf-modal-prov').classList.add('open');
 }
 async function sfGuardarProv(){
@@ -3159,6 +3184,9 @@ function openPriceAdj(){
   document.getElementById('pa-preview-wrap').style.display = 'none';
   document.getElementById('pa-empty').style.display = 'block';
   document.getElementById('pa-apply-btn').disabled = true;
+  window._scrollY = window.scrollY;
+  document.body.style.top = '-' + window._scrollY + 'px';
+  document.body.classList.add('modal-open');
   document.getElementById('price-adj-modal').classList.add('open');
 }
 
@@ -3289,6 +3317,9 @@ function openLabelModal(id){
   labelProduct = products.find(x => String(x.id) === String(id));
   if(!labelProduct){ toast('Producto no encontrado'); return; }
   buildLabelPreview(labelProduct);
+  window._scrollY = window.scrollY;
+  document.body.style.top = '-' + window._scrollY + 'px';
+  document.body.classList.add('modal-open');
   document.getElementById('label-modal').classList.add('open');
 }
 
