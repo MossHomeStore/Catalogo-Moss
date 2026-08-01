@@ -79,7 +79,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
 .cat-item:hover{background:var(--linen);border-left-color:var(--sand);}
 .cat-item.active{background:var(--linen);border-left-color:var(--walnut);color:var(--walnut);font-weight:500;}
 .cat-count{background:var(--linen-dark);color:var(--walnut);font-size:11px;padding:2px 7px;border-radius:10px;min-width:22px;text-align:center;}
-.content{flex:1;padding:24px 28px;overflow-y:auto;max-width:100%;}
+.content{flex:1;padding:24px 28px;overflow-y:auto;max-width:100%;-webkit-overflow-scrolling:touch;}
 .search-bar{position:relative;margin-bottom:20px;}
 .search-bar input{width:100%;padding:10px 14px 10px 38px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--espresso);background:var(--white);outline:none;transition:border .2s;}
 .search-bar input:focus{border-color:var(--walnut);}
@@ -113,7 +113,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
 .content-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;}
 .content-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;color:var(--walnut);letter-spacing:.03em;}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(60,45,35,.5);z-index:400;align-items:flex-start;justify-content:center;padding:20px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;overflow-y:auto;}
-body.modal-open{overflow:hidden;position:fixed;width:100%;}
+body.modal-open{overflow:hidden;}
+@media(max-width:720px){body.modal-open{position:fixed;width:100%;}}
 .modal-overlay.open{display:flex;}
 .modal{background:var(--white);border-radius:14px;width:100%;max-width:1000px;margin:auto;padding:28px 32px;position:relative;animation:modalIn .25s ease;}
 .modal-sm{max-width:420px;}
@@ -603,7 +604,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;}
 .sf-nav-btn:hover { color:var(--walnut); }
 .sf-nav-btn.active { color:var(--walnut); border-bottom-color:var(--walnut); font-weight:500; }
 .sf-section { display:none; }
-.sf-section.active { display:block; }
+.sf-section.active { display:block; overflow-y:auto; }
 .sf-tc-bar { background:var(--linen); border:1px solid var(--border); border-radius:8px; padding:10px 16px; margin-bottom:18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
 .sf-result-box { background:var(--espresso); color:var(--white); border-radius:10px; padding:20px 24px; margin-top:16px; }
 .sf-result-box h4 { font-size:11px; color:var(--sand); margin-bottom:12px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; }
@@ -989,7 +990,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;}
     </div>
 
     <!-- SOFAS VIEW -->
-    <div id="view-sofas" style="display:none;">
+    <div id="view-sofas" style="display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;">
       <div class="content-header">
         <div class="content-title">Cotizador de Sofás</div>
       </div>
@@ -1939,6 +1940,10 @@ async function doGoogleLogin(){
       isAdmin = true;
       const ls=document.getElementById('login-screen');
       ls.classList.remove('visible');ls.style.display='none';
+      // Restore scroll after closing login screen
+      document.body.classList.remove('modal-open');
+      document.body.style.top='';
+      window.scrollTo(0, window._scrollY||0);
       // Switch nav: hide public, show admin
       document.getElementById('nav-public').style.display='none';
       document.getElementById('nav-admin').style.display='flex';
@@ -1964,6 +1969,8 @@ function closeLogin(){
   window._pv=null;
   if(!document.querySelector('.modal-overlay.open')){
     document.body.classList.remove('modal-open');
+    document.body.style.top='';
+    window.scrollTo(0, window._scrollY||0);
   }
 }
 
@@ -1977,6 +1984,9 @@ async function logout(){
   document.getElementById('admin-indicator').classList.remove('visible');
   document.getElementById('btn-new-product').style.display='none';
   const bpa2=document.getElementById('btn-price-adj');if(bpa2)bpa2.style.display='none';
+  // Ensure body scroll is restored
+  document.body.classList.remove('modal-open');
+  document.body.style.top='';
   showView('catalog');
   toast('Sesión cerrada');
 }
@@ -1997,6 +2007,11 @@ function showView(v){
       btn.classList.toggle('active', oc.includes("'"+v+"'"));
     });
   });
+  // Always ensure body scroll is enabled when navigating between views
+  if(!document.querySelector('.modal-overlay.open')){
+    document.body.classList.remove('modal-open');
+    document.body.style.top='';
+  }
   if(v==='sofas' && !window._sfLoaded){ window._sfLoaded=true; sfLoadAll(); }
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
   const tabMap={'catalog':0,'admin':1,'import':2,'settings':3};
