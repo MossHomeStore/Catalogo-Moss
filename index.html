@@ -117,7 +117,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
 body.modal-open{overflow:hidden;}
 @media(max-width:720px){body.modal-open{position:fixed;width:100%;}}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--white);border-radius:14px;width:100%;max-width:1000px;margin:auto;padding:28px 32px;position:relative;animation:modalIn .25s ease;isolation:isolate;-webkit-transform:translateZ(0);transform:translateZ(0);}
+.modal{background:#ffffff;border-radius:14px;width:100%;max-width:1000px;margin:auto;padding:28px 32px;position:relative;animation:modalIn .25s ease;isolation:isolate;-webkit-transform:translateZ(0);transform:translateZ(0);}
+#product-modal .modal{background:#ffffff!important;}
+#product-modal .measures-table td{background:#ffffff!important;}
+#product-modal .measures-table input{background:#ffffff!important;}
 .modal-sm{max-width:420px;}
 @keyframes modalIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 .modal-close{position:absolute;top:16px;right:20px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--driftwood);line-height:1;transition:color .15s;}
@@ -410,10 +413,9 @@ body.modal-open{overflow:hidden;}
   .form-input,.form-select,.form-textarea{ padding:11px 12px; }
 
   /* ---- Measures table: horizontal scroll with visible hint ---- */
-  /* Measures: hide table, use JS-rendered cards instead */
-  .measures-wrap{ overflow-x:hidden; }
-  .measures-table{ display:none; }
-  #measures-cards-mobile{ display:block; }
+  /* Measures: hide table, show cards */
+  .measures-wrap{ overflow-x:hidden; display:none!important; }
+  #measures-cards-mobile{ display:block!important; }
 
   /* ---- Quote modal ---- */
   .quote-result-box{ flex-direction:column; gap:8px; align-items:flex-start; padding:14px; width:100%; box-sizing:border-box; }
@@ -2188,13 +2190,8 @@ function renderMeasures(){
     </tr>`;
   }).join('');
 
-  // ── Show table on desktop, cards on mobile ──
-  const isMobile = window.innerWidth <= 720;
-  const tableWrap = document.querySelector('.measures-wrap');
-  const cardsDiv  = document.getElementById('measures-cards-mobile');
-  if(tableWrap) tableWrap.style.display = isMobile ? 'none' : '';
-  if(cardsDiv)  cardsDiv.style.display  = isMobile ? 'block' : 'none';
-  if(isMobile){ renderMeasuresMobile(); return; }
+  // ── Always render both table and cards, CSS controls visibility ──
+  renderMeasuresMobile();
 
   // ── Attach single delegated listener to tbody ──
   const tbody = document.getElementById('measures-tbody');
@@ -2280,7 +2277,7 @@ function renderMeasuresMobile(){
           <input type="number" value="${manualPrice||''}" data-row="${i}" data-field="price"
             style="width:110px;padding:7px 8px;border:1px solid var(--linen-dark);border-radius:6px;font-size:15px;background:var(--white);" placeholder="Auto">
         </div>
-        <div style="text-align:right;">
+        <div style="text-align:right;" data-price-display>
           ${cost?`<div style="font-size:10px;color:var(--driftwood);">Costo: ${cfg.currency} ${cost.toLocaleString('es-UY')}</div>`:''}
           ${shownPrice?`<div style="font-size:15px;font-weight:600;color:var(--walnut);">${cfg.currency} ${shownPrice.toLocaleString('es-UY')}</div>`:''}
         </div>
@@ -2288,15 +2285,33 @@ function renderMeasuresMobile(){
     </div>`;
   }).join('') + (tempMeasures.length===0?'<div style="text-align:center;padding:20px;color:#bbb;font-size:13px;">Sin medidas — agregá una</div>':'');
 
-  // Attach listener
+  // Attach listener — only re-render cards, not full table
   container.oninput = function(e){
     const inp = e.target;
     const row = inp.dataset.row;
     const field = inp.dataset.field;
     if(row===undefined||!field) return;
     const i = +row;
-    tempMeasures[i][field] = field==='name'?inp.value:(+inp.value||0);
-    renderMeasuresMobile();
+    const val = field==='name'?inp.value:(+inp.value||0);
+    if(tempMeasures[i]) tempMeasures[i][field] = val;
+    // Re-render just the price/cost display without full re-render
+    const hasUp = document.getElementById('f-upholstery').value==='si';
+    const fac = parseFloat(document.getElementById('f-factor').value)||cfg.factor;
+    const m = tempMeasures[i];
+    if(m && field!=='name'){
+      const cost=(m.carp||0)+(m.lust||0)+(m.extra||0)+(hasUp?(m.tapic||0):0);
+      const autoPrice=cost?roundTo90(cost*fac):0;
+      const manualPrice=m.price||0;
+      const shownPrice=manualPrice||autoPrice;
+      // Update the price/cost display in current card
+      const card = inp.closest('div[style*="border:1px solid"]');
+      if(card){
+        const priceDiv = card.querySelector('[data-price-display]');
+        if(priceDiv) priceDiv.innerHTML =
+          (cost?`<div style="font-size:10px;color:var(--driftwood);">Costo: ${cfg.currency} ${cost.toLocaleString('es-UY')}</div>`:'') +
+          (shownPrice?`<div style="font-size:15px;font-weight:600;color:var(--walnut);">${cfg.currency} ${shownPrice.toLocaleString('es-UY')}</div>`:'');
+      }
+    }
     updatePriceBar();
   };
 }
