@@ -117,7 +117,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--linen);color:var(--espres
 body.modal-open{overflow:hidden;}
 @media(max-width:720px){body.modal-open{position:fixed;width:100%;}}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--white);border-radius:14px;width:100%;max-width:1000px;margin:auto;padding:28px 32px;position:relative;animation:modalIn .25s ease;isolation:isolate;}
+.modal{background:var(--white);border-radius:14px;width:100%;max-width:1000px;margin:auto;padding:28px 32px;position:relative;animation:modalIn .25s ease;isolation:isolate;-webkit-transform:translateZ(0);transform:translateZ(0);}
 .modal-sm{max-width:420px;}
 @keyframes modalIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 .modal-close{position:absolute;top:16px;right:20px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--driftwood);line-height:1;transition:color .15s;}
@@ -410,34 +410,10 @@ body.modal-open{overflow:hidden;}
   .form-input,.form-select,.form-textarea{ padding:11px 12px; }
 
   /* ---- Measures table: horizontal scroll with visible hint ---- */
-  /* Measures table → stacked cards on mobile */
+  /* Measures: hide table, use JS-rendered cards instead */
   .measures-wrap{ overflow-x:hidden; }
-  .measures-table thead{ display:none; }
-  .measures-table tbody tr{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:6px;
-    background:var(--white);
-    border:1px solid var(--linen-dark);
-    border-radius:8px;
-    padding:10px;
-    margin-bottom:8px;
-  }
-  .measures-table td{
-    display:flex; flex-direction:column; gap:3px;
-    padding:0; border:none; background:transparent;
-  }
-  .measures-table td::before{
-    content:attr(data-label);
-    font-size:9px; text-transform:uppercase; letter-spacing:.06em;
-    color:var(--driftwood); font-weight:500;
-  }
-  .measures-table input{ width:100%; font-size:15px; padding:7px 8px; }
-  /* Delete button cell — full width */
-  .measures-table td:last-child{
-    grid-column:1/-1; flex-direction:row; justify-content:flex-end; align-items:center;
-  }
-  .measures-table td:last-child::before{ display:none; }
+  .measures-table{ display:none; }
+  #measures-cards-mobile{ display:block; }
 
   /* ---- Quote modal ---- */
   .quote-result-box{ flex-direction:column; gap:8px; align-items:flex-start; padding:14px; width:100%; box-sizing:border-box; }
@@ -2212,6 +2188,14 @@ function renderMeasures(){
     </tr>`;
   }).join('');
 
+  // ── Show table on desktop, cards on mobile ──
+  const isMobile = window.innerWidth <= 720;
+  const tableWrap = document.querySelector('.measures-wrap');
+  const cardsDiv  = document.getElementById('measures-cards-mobile');
+  if(tableWrap) tableWrap.style.display = isMobile ? 'none' : '';
+  if(cardsDiv)  cardsDiv.style.display  = isMobile ? 'block' : 'none';
+  if(isMobile){ renderMeasuresMobile(); return; }
+
   // ── Attach single delegated listener to tbody ──
   const tbody = document.getElementById('measures-tbody');
   tbody.oninput = function(e){
@@ -2253,6 +2237,69 @@ function updateVariantRow(i, hasUpholstery, factor){
   updatePriceBar();
 }
 function addMeasureRow(){tempMeasures.push({name:'Medida',w:0,h:0,d:0,carp:0,lust:0,extra:0,tapic:0,price:0});renderMeasures();}
+
+function renderMeasuresMobile(){
+  const hasUpholstery = document.getElementById('f-upholstery').value === 'si';
+  const factor = parseFloat(document.getElementById('f-factor').value)||cfg.factor;
+  const container = document.getElementById('measures-cards-mobile');
+  if(!container) return;
+  container.innerHTML = tempMeasures.map((m,i) => {
+    const cost = (m.carp||0)+(m.lust||0)+(m.extra||0)+(hasUpholstery?(m.tapic||0):0);
+    const autoPrice = cost ? roundTo90(cost*factor) : 0;
+    const manualPrice = m.price||0;
+    const shownPrice = manualPrice || autoPrice;
+    return `<div style="background:var(--white);border:1px solid var(--linen-dark);border-radius:10px;padding:12px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <input value="${m.name}" data-row="${i}" data-field="name"
+          style="font-size:14px;font-weight:500;border:none;border-bottom:1.5px solid var(--linen-dark);padding:4px 0;width:60%;background:transparent;outline:none;color:var(--espresso);"
+          placeholder="Nombre">
+        <button onclick="removeMeasure(${i})" style="background:none;border:none;color:#c0776a;font-size:18px;cursor:pointer;padding:4px 8px;">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+        ${['w','h','d'].map((f,fi)=>`<div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--driftwood);margin-bottom:3px;">${['Ancho','Alto','Prof.'][fi]} cm</div>
+          <input type="number" value="${m[f]||''}" data-row="${i}" data-field="${f}"
+            style="width:100%;padding:7px 8px;border:1px solid var(--linen-dark);border-radius:6px;font-size:15px;background:var(--white);" placeholder="0">
+        </div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr${hasUpholstery?' 1fr':''};gap:8px;margin-bottom:10px;">
+        ${['carp','lust','extra'].map((f,fi)=>`<div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--driftwood);margin-bottom:3px;">${['Carpint.','Lustrado','Extra'][fi]}</div>
+          <input type="number" value="${m[f]||''}" data-row="${i}" data-field="${f}"
+            style="width:100%;padding:7px 8px;border:1px solid var(--linen-dark);border-radius:6px;font-size:15px;background:var(--white);" placeholder="0">
+        </div>`).join('')}
+        ${hasUpholstery?`<div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--driftwood);margin-bottom:3px;">Tapicero</div>
+          <input type="number" value="${m.tapic||''}" data-row="${i}" data-field="tapic"
+            style="width:100%;padding:7px 8px;border:1px solid var(--linen-dark);border-radius:6px;font-size:15px;background:var(--white);" placeholder="0">
+        </div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--linen-dark);">
+        <div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--driftwood);margin-bottom:3px;">Precio lista (manual)</div>
+          <input type="number" value="${manualPrice||''}" data-row="${i}" data-field="price"
+            style="width:110px;padding:7px 8px;border:1px solid var(--linen-dark);border-radius:6px;font-size:15px;background:var(--white);" placeholder="Auto">
+        </div>
+        <div style="text-align:right;">
+          ${cost?`<div style="font-size:10px;color:var(--driftwood);">Costo: ${cfg.currency} ${cost.toLocaleString('es-UY')}</div>`:''}
+          ${shownPrice?`<div style="font-size:15px;font-weight:600;color:var(--walnut);">${cfg.currency} ${shownPrice.toLocaleString('es-UY')}</div>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('') + (tempMeasures.length===0?'<div style="text-align:center;padding:20px;color:#bbb;font-size:13px;">Sin medidas — agregá una</div>':'');
+
+  // Attach listener
+  container.oninput = function(e){
+    const inp = e.target;
+    const row = inp.dataset.row;
+    const field = inp.dataset.field;
+    if(row===undefined||!field) return;
+    const i = +row;
+    tempMeasures[i][field] = field==='name'?inp.value:(+inp.value||0);
+    renderMeasuresMobile();
+    updatePriceBar();
+  };
+}
 function removeMeasure(i){tempMeasures.splice(i,1);renderMeasures();}
 function handleImgUpload(inp){
   Array.from(inp.files).forEach(f=>{
@@ -2866,6 +2913,9 @@ async function sfDeleteDoc(col, id){
 }
 
 function sfRenderAll(){
+  // Always sort alphabetically before rendering
+  sfSofas.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));
+  sfTelas.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));
   sfRenderSofas(); sfRenderTelas();
   sfRenderProvGrid('tela'); sfRenderProvGrid('sofa');
   sfPoblarSelects(); sfRenderHistorial();
@@ -2973,7 +3023,11 @@ async function sfGuardarSofa(){
   const pr=parseFloat(document.getElementById('sf-sofa-precio').value);
   const tr=parseFloat(document.getElementById('sf-sofa-tela').value);
   const ar=parseFloat(document.getElementById('sf-sofa-ancho').value);
-  if(!n||isNaN(lr)||isNaN(pr)||isNaN(tr)||isNaN(ar)){toast('Completá todos los campos');return;}
+  if(!n){toast('Ingresá el nombre del modelo');return;}
+  if(isNaN(lr)||lr<=0){toast('Ingresá el largo de referencia');return;}
+  if(isNaN(pr)||pr<=0){toast('Ingresá el precio de referencia');return;}
+  if(isNaN(tr)||tr<=0){toast('Ingresá los metros de tela de referencia');return;}
+  if(isNaN(ar)||ar<=0){toast('Ingresá el ancho de tela de referencia');return;}
   const fv=parseFloat(document.getElementById('sf-sofa-factor').value);
   const id=document.getElementById('sf-sofa-edit-id').value;
   const obj={id:id||sfUid(),nombre:n,proveedor:document.getElementById('sf-sofa-prov').value,largoRef:lr,precioRef:pr,telaRef:tr,anchoRef:ar,factor:isNaN(fv)?null:fv,desc:document.getElementById('sf-sofa-desc').value.trim()};
@@ -3007,14 +3061,37 @@ function sfAbrirModalTela(id){
 async function sfGuardarTela(){
   const n=document.getElementById('sf-tela-nombre').value.trim();
   const a=parseFloat(document.getElementById('sf-tela-ancho').value);
-  const l=parseFloat(document.getElementById('sf-tela-largo').value);
+  const l=parseFloat(document.getElementById('sf-tela-largo').value)||0; // optional
   const p=parseFloat(document.getElementById('sf-tela-precio').value);
-  if(!n||isNaN(a)||isNaN(l)||isNaN(p)){toast('Completá todos los campos');return;}
+  if(!n){toast('Ingresá el nombre de la tela');return;}
+  if(isNaN(a)||a<=0){toast('Ingresá el ancho de la tela');return;}
+  if(isNaN(p)||p<=0){toast('Ingresá el precio por metro');return;}
   const id=document.getElementById('sf-tela-edit-id').value;
-  const obj={id:id||sfUid(),nombre:n,proveedor:document.getElementById('sf-tela-prov').value,ancho:a,largo:l,precio:p,desc:document.getElementById('sf-tela-desc').value.trim()};
-  if(id){const i=sfTelas.findIndex(x=>x.id===id);sfTelas[i]=obj;}else sfTelas.push(obj);
-  await sfSaveCol(SF_COLS.telas,[obj]);
-  closeModal('sf-modal-tela');sfRenderAll();toast('Tela guardada');
+  const obj={
+    id:id||sfUid(),
+    nombre:n,
+    proveedor:document.getElementById('sf-tela-prov').value||'',
+    ancho:a,
+    largo:l,
+    precio:p,
+    desc:(document.getElementById('sf-tela-desc').value||'').trim()
+  };
+  if(id){
+    const i=sfTelas.findIndex(x=>x.id===id);
+    if(i>-1) sfTelas[i]=obj; else sfTelas.push(obj);
+  } else {
+    sfTelas.push(obj);
+  }
+  try {
+    await sfSaveCol(SF_COLS.telas,[obj]);
+    closeModal('sf-modal-tela');
+    sfRenderAll();
+    sfPoblarSelects();
+    toast('Tela guardada');
+  } catch(e) {
+    toast('Error al guardar: '+e.message);
+    console.error('[SF] Tela save error:',e);
+  }
 }
 async function sfEliminarTela(id){
   if(!confirm('¿Eliminar esta tela?'))return;
