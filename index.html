@@ -2631,20 +2631,24 @@ function calcCustom(){
   }
   _quoteW=w; _quoteH=h; _quoteD=d;
   window._lastSelectedMeasure=null;
-  showQuoteResult(w,h,d,'Medida personalizada',w+'×'+h+'×'+d+' cm',true,null);
+  const maderaId=document.getElementById('qm-madera')?.value||quoteProduct?.madera||getMaderas()[0]?.id||'';
+  showQuoteResult(w,h,d,'Medida personalizada',w+'×'+h+'×'+d+' cm',true,null,maderaId);
 }
-function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure){
+function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure,maderaOverride){
   const p=quoteProduct;
+  // Always read maderaId from param or selector
+  const maderaId = maderaOverride !== undefined ? maderaOverride
+    : (document.getElementById('qm-madera')?.value || p.madera || getMaderas()[0]?.id || '');
   let price;
 
   if(!isCustom && refMeasure){
-    // Preset selected: use manual price if set, otherwise calculate from variant costs
-    price = calcPrice(p, refMeasure);
+    // Preset: use calcPrice with current madera
+    price = calcPrice(p, refMeasure, maderaId);
   } else {
     const TOL = 5; // ±5cm tolerance per dimension
 
     const usable = (p.measures||[])
-      .map(m => ({ m, price: m.price && m.price > 0 ? m.price : calcPrice(p, m) }))
+      .map(m => ({ m, price: m.price && m.price > 0 ? m.price : calcPrice(p, m, maderaId) }))
       .filter(v => v.m.w > 0 && v.m.h > 0 && v.m.d > 0 && v.price > 0);
 
     if(usable.length === 0){
@@ -2654,6 +2658,7 @@ function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure){
       // Single variant → square root of volume ratio
       const ref = usable[0].m;
       const volRef = ref.w * ref.h * ref.d;
+      // usable[0].price already includes madera adjustment (recalculated above)
       price = usable[0].price * Math.sqrt(volRef > 0 ? (w*h*d) / volRef : 1);
 
     } else {
