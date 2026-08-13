@@ -1722,26 +1722,36 @@ function renderMaderasConfig(){
   if(!tbody) return;
   const matPctEl = document.getElementById('cfg-mat-pct');
   if(matPctEl) matPctEl.value = cfg.matPct||40;
-  tbody.innerHTML = getMaderas().map(m=>{
-    const isBase = m.pct===0;
-    const cls = isBase?'base':m.pct>0?'up':'down';
-    const label = isBase?'Base':m.pct>0?'+'+m.pct+'%':m.pct+'%';
+  const maderas = getMaderas();
+  tbody.innerHTML = maderas.map((m,idx)=>{
+    const isBase = m.pct===0 && idx===0;
+    const cls = m.pct===0?'base':m.pct>0?'up':'down';
     const factor = calcMaderaFactor(m.id);
-    const efecto = isBase?'Sin cambio':(factor>1?'+':'')+(((factor-1)*100).toFixed(1))+'% sobre precio';
+    const efecto = m.pct===0?'Sin cambio':(factor>1?'+':'')+(((factor-1)*100).toFixed(1))+'% sobre precio';
+    const canDelete = maderas.length > 1; // can always delete if more than one exists
     return '<tr>'+
-      '<td><strong>'+m.nombre+'</strong>'+(isBase?' <span style="font-size:10px;color:#bbb;">(referencia)</span>':'')+'</td>'+
-      '<td><span class="madera-badge '+cls+'">'+label+'</span>'+
-        (isBase?'':' <input type="number" value="'+m.pct+'" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" onchange="updateMaderaGlobal(&quot;'+m.id+'&quot;,+this.value)">')+
-      '</td>'+
+      // Editable name for ALL maderas
+      '<td><input value="'+m.nombre+'" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:13px;font-weight:500;width:120px;" onchange="renameMadera(&quot;'+m.id+'&quot;,this.value)">'+
+        (isBase?' <span style="font-size:10px;color:#bbb;">(referencia)</span>':'')+'</td>'+
+      // Editable % for ALL (base shows 0 and is editable too — to reassign base)
+      '<td style="white-space:nowrap;"><input type="number" value="'+m.pct+'" style="width:60px;padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;" onchange="updateMaderaGlobal(&quot;'+m.id+'&quot;,+this.value)">'+
+        ' <span class="madera-badge '+cls+'">'+(m.pct>0?'+'+m.pct:m.pct)+'%</span></td>'+
       '<td style="font-size:12px;color:var(--driftwood);">'+efecto+'</td>'+
-      '<td>'+(isBase?'':'<button onclick="eliminarMadera(&quot;'+m.id+'&quot;)" style="background:none;border:none;color:#c0776a;cursor:pointer;font-size:16px;">×</button>')+'</td>'+
+      // Delete button for ALL if more than 1 exists
+      '<td>'+(canDelete?'<button onclick="eliminarMadera(&quot;'+m.id+'&quot;)" style="background:none;border:none;color:#c0776a;cursor:pointer;font-size:18px;padding:2px 6px;" title="Eliminar">×</button>':'')+'</td>'+
     '</tr>';
   }).join('');
 }
 
+function renameMadera(id, nombre){
+  const m = getMaderas().find(x=>x.id===id);
+  if(!nombre.trim()){ toast('El nombre no puede estar vacío'); return; }
+  if(m){ m.nombre=nombre.trim(); save(); populateMaderaSelect(); toast('Nombre actualizado'); }
+}
+
 function updateMaderaGlobal(id, pct){
   const m = getMaderas().find(x=>x.id===id);
-  if(m){ m.pct=pct; save(); renderMaderasConfig(); toast('Madera actualizada'); }
+  if(m){ m.pct=pct; save(); renderMaderasConfig(); populateMaderaSelect(); toast('Porcentaje actualizado'); }
 }
 
 function agregarMadera(){
@@ -2556,11 +2566,23 @@ function qmSetImg(i){
   imgWrap.innerHTML=`<img src="${lbImages[i]}" alt="" onclick="openLightbox(${i})" style="cursor:zoom-in;">`;
   document.querySelectorAll('.qm-thumb').forEach((t,j)=>t.classList.toggle('qm-thumb-active',j===i));
 }
-function selectPreset(i){const p=quoteProduct;const m=p.measures[i];window._lastSelectedMeasure=m;_quoteW=m.w||0;_quoteH=m.h||0;_quoteD=m.d||0;const maderaId=document.getElementById('qm-madera')?.value||p.madera||'';document.querySelectorAll('.preset-pill').forEach((b,j)=>b.classList.toggle('sel',j===i));const d=document.getElementById('qm-preset-dims');d.style.display='block';const varCost=(m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0);
-    const computedPrice=calcPrice(quoteProduct,m);
-    d.innerHTML=`<strong>${m.name}</strong> — ${m.w}×${m.h}×${m.d} cm`+
-      `<span style="color:var(--walnut);font-weight:500;margin-left:10px;">${fmt(computedPrice)}</span>`+
-      '';showQuoteResult(m.w,m.h,m.d,m.name,`${m.w}×${m.h}×${m.d} cm`,false,m);}
+function selectPreset(i){
+  const p=quoteProduct;
+  const m=p.measures[i];
+  window._lastSelectedMeasure=m;
+  _quoteW=m.w||0;_quoteH=m.h||0;_quoteD=m.d||0;
+  const maderaId=document.getElementById('qm-madera')?.value||p.madera||'';
+  document.querySelectorAll('.preset-pill').forEach((b,j)=>b.classList.toggle('sel',j===i));
+  const d=document.getElementById('qm-preset-dims');
+  d.style.display='block';
+  // Use maderaId in price calculation
+  const computedPrice=calcPrice(quoteProduct,m,maderaId);
+  const maderaLabel=maderaId?(getMaderas().find(x=>x.id===maderaId)||{nombre:''}).nombre:'';
+  d.innerHTML='<strong>'+m.name+'</strong> — '+m.w+'×'+m.h+'×'+m.d+' cm'+
+    '<span style="color:var(--walnut);font-weight:500;margin-left:10px;">'+fmt(computedPrice)+'</span>'+
+    (maderaLabel?'<span style="color:var(--driftwood);font-size:11px;margin-left:6px;">· '+maderaLabel+'</span>':'');
+  showQuoteResult(m.w,m.h,m.d,m.name,m.w+'×'+m.h+'×'+m.d+' cm',false,m,maderaId);
+}
 function switchQuoteTab(tab){
   quoteMode=tab;
   // Use data-tab attribute to avoid index issues with other .tab-btn elements
@@ -2577,22 +2599,20 @@ function switchQuoteTab(tab){
   }
 }
 function onQuoteMaderaChange(){
-  // Recalculate all presets with new madera
   const maderaId = document.getElementById('qm-madera')?.value||'';
-  // Rebuild preset pills with updated prices
   const p = quoteProduct;
   if(!p) return;
+  // Rebuild pills (prices don't show in pills, just dims — but rebuild to reset state)
   const presets = document.getElementById('qm-presets');
   if(presets && p.measures && p.measures.length){
-    presets.innerHTML = p.measures.map((m,i)=>{
-      const price = calcPrice(p, m, maderaId);
-      return `<div class="preset-pill" onclick="selectPreset(${i})">${m.name}<br><small style="opacity:.7">${m.w}×${m.h}×${m.d}</small></div>`;
-    }).join('');
+    presets.innerHTML = p.measures.map((m,i)=>
+      '<div class="preset-pill" onclick="selectPreset('+i+')">'+m.name+'<br><small style="opacity:.7">'+m.w+'×'+m.h+'×'+m.d+'</small></div>'
+    ).join('');
   }
-  // Recalc if a preset was already selected
+  // If a preset was already selected, recalculate with new madera
   if(quoteMode==='preset' && window._lastSelectedMeasure){
-    const idx = p.measures.indexOf(window._lastSelectedMeasure);
-    if(idx>=0) selectPreset(idx);
+    const idx = p.measures.findIndex(m=>m===window._lastSelectedMeasure);
+    if(idx>=0) selectPreset(idx); // this calls calcPrice with current maderaId
   } else if(quoteMode==='custom'){
     calcCustom();
   }
