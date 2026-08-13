@@ -1779,8 +1779,15 @@ function populateMaderaSelect(){
   const sel = document.getElementById('f-madera');
   if(!sel) return;
   const maderas = getMaderas();
-  sel.innerHTML = '<option value="">Guatambú (default)</option>' +
-    maderas.filter(m=>m.pct!==0).map(m=>'<option value="'+m.id+'">'+m.nombre+(m.pct>0?' (+'+m.pct+'%)':(m.pct+'%'))+'</option>').join('');
+  // All maderas including base, only name, no percentage
+  sel.innerHTML = maderas.map(m=>'<option value="'+m.id+'">'+m.nombre+'</option>').join('');
+}
+
+// Build madera options for quote modal (all maderas, name only)
+function maderaOptions(selectedId){
+  return getMaderas().map(m=>
+    '<option value="'+m.id+'"'+(m.id===selectedId?' selected':'')+'>'+m.nombre+'</option>'
+  ).join('');
 }
 
 // Resize and compress image to fit Firestore 1MB document limit
@@ -2259,7 +2266,10 @@ function openProductModal(id=null){editingId=id!=null?+id:null;tempImgs=[];tempM
     // Refresh category select
     const newCatEl=document.getElementById('f-cat');
     if(newCatEl) newCatEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join('');
-    populateMaderaSelect();}window._scrollY = window.scrollY;
+    populateMaderaSelect();
+    // Default to base madera for new products
+    const fmEl=document.getElementById('f-madera');
+    if(fmEl && getMaderas().length) fmEl.value=getMaderas()[0].id;}window._scrollY = window.scrollY;
   document.body.style.top = '-' + window._scrollY + 'px';
   document.body.classList.add('modal-open');
   document.getElementById('product-modal').classList.add('open');}
@@ -2527,12 +2537,11 @@ function openQuote(id){
   const maderas=getMaderas();
   const qmMaderaWrap=document.getElementById('qm-madera-wrap');
   const qmMadera=document.getElementById('qm-madera');
-  if(maderas.length>1 && qmMaderaWrap && qmMadera){
-    qmMadera.innerHTML='<option value="">Guatambú (base)</option>'+maderas.filter(m=>m.pct!==0).map(m=>'<option value="'+m.id+'">'+m.nombre+(m.pct>0?' (+'+m.pct+'%)':(m.pct+'%'))+'</option>').join('');
-    qmMadera.value=p.madera||'';
-    qmMaderaWrap.style.display='';
-  } else if(qmMaderaWrap){
-    qmMaderaWrap.style.display='none';
+  if(qmMaderaWrap && qmMadera){
+    // Show madera selector whenever there's more than one madera defined
+    const selectedMadera = p.madera || getMaderas()[0]?.id || '';
+    qmMadera.innerHTML = maderaOptions(selectedMadera);
+    qmMaderaWrap.style.display = maderas.length > 1 ? '' : 'none';
   }
   // Main image
   const imgWrap=document.getElementById('qm-img-main');
@@ -2599,20 +2608,13 @@ function switchQuoteTab(tab){
   }
 }
 function onQuoteMaderaChange(){
-  const maderaId = document.getElementById('qm-madera')?.value||'';
   const p = quoteProduct;
   if(!p) return;
-  // Rebuild pills (prices don't show in pills, just dims — but rebuild to reset state)
-  const presets = document.getElementById('qm-presets');
-  if(presets && p.measures && p.measures.length){
-    presets.innerHTML = p.measures.map((m,i)=>
-      '<div class="preset-pill" onclick="selectPreset('+i+')">'+m.name+'<br><small style="opacity:.7">'+m.w+'×'+m.h+'×'+m.d+'</small></div>'
-    ).join('');
-  }
-  // If a preset was already selected, recalculate with new madera
+  // Recalculate based on current mode
   if(quoteMode==='preset' && window._lastSelectedMeasure){
+    // Find index of selected measure and recalculate
     const idx = p.measures.findIndex(m=>m===window._lastSelectedMeasure);
-    if(idx>=0) selectPreset(idx); // this calls calcPrice with current maderaId
+    if(idx>=0) selectPreset(idx);
   } else if(quoteMode==='custom'){
     calcCustom();
   }
