@@ -726,6 +726,16 @@ body.modal-open{overflow:hidden;}
 @media(max-width:420px){
   .qm-img-wrap{ min-height:180px; max-height:32vh; }
 }
+
+/* ===== MADERA ===== */
+.madera-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
+.madera-table th{background:var(--linen-dark);padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--walnut);font-weight:500;}
+.madera-table td{padding:7px 10px;border-bottom:1px solid var(--linen-dark);}
+.madera-table tr:last-child td{border-bottom:none;}
+.madera-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;}
+.madera-badge.base{background:var(--linen-dark);color:var(--walnut);}
+.madera-badge.up{background:#f0f7f0;color:#4a6a2a;}
+.madera-badge.down{background:#fff5f0;color:#c07040;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -1236,6 +1246,28 @@ body.modal-open{overflow:hidden;}
           </div>
         </div>
         <div class="setting-card">
+          <div class="setting-card-title">Madera de referencia y tipos</div>
+          <div class="form-group">
+            <label class="form-label">% de materia prima en carpintería</label>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <input type="number" class="form-input" id="cfg-mat-pct" value="40" min="1" max="99" style="width:80px;" onchange="saveCfg()">
+              <span style="font-size:12px;color:var(--driftwood);">% del costo de carpintería corresponde a madera</span>
+            </div>
+          </div>
+          <div style="font-size:12px;font-weight:500;color:var(--espresso);margin:12px 0 6px;">Tipos de madera</div>
+          <div style="font-size:11px;color:var(--driftwood);margin-bottom:8px;">Porcentaje de incremento/decremento respecto a Guatambú (base = 0%)</div>
+          <table class="madera-table">
+            <thead><tr><th>Madera</th><th>% vs Guatambú</th><th>Efecto en precio</th><th></th></tr></thead>
+            <tbody id="maderas-tbody"></tbody>
+          </table>
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input class="form-input" id="nueva-madera-nombre" placeholder="Nueva madera..." style="width:150px;">
+            <input type="number" class="form-input" id="nueva-madera-pct" placeholder="%" style="width:70px;" step="1">
+            <button class="btn-secondary" onclick="agregarMadera()">+ Agregar</button>
+          </div>
+        </div>
+
+        <div class="setting-card">
           <div class="setting-card-title">Orden por defecto del catálogo</div>
           <div class="form-group">
             <label class="form-label">Ordenar productos por</label>
@@ -1368,7 +1400,13 @@ body.modal-open{overflow:hidden;}
         <div class="qm-header">
           <div class="qm-cat" id="qm-cat-label"></div>
           <div class="modal-title" id="qm-title" style="margin-bottom:2px;"></div>
-          <div class="modal-sub" id="qm-sub" style="margin-bottom:12px;"></div>
+          <div class="modal-sub" id="qm-sub" style="margin-bottom:8px;"></div>
+          <div id="qm-madera-wrap" style="display:none;margin-bottom:10px;">
+            <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--driftwood);">Madera</label>
+            <select id="qm-madera" class="form-select" style="margin-top:4px;" onchange="onQuoteMaderaChange()">
+              <option value="">Guatambú (base)</option>
+            </select>
+          </div>
         </div>
 
         <div class="tab-switch">
@@ -1628,7 +1666,7 @@ const MOSS_WEB='';
 // All data comes from Firebase — no localStorage
 let products   = [];
 let categories = ["Sillones","Sillas","Mesas","Dormitorio","Comedor","Biblioteca","Exterior"];
-let cfg        = {"factor":2.5,"currency":"$"};
+let cfg        = {"factor":2.5,"currency":"$","matPct":40,"maderas":[{"id":"guatambu","nombre":"Guatambú","pct":0},{"id":"alamo","nombre":"Álamo","pct":-15},{"id":"cipres","nombre":"Ciprés","pct":15},{"id":"cedro","nombre":"Cedro","pct":25},{"id":"roble","nombre":"Roble","pct":35}]};
 const ADMIN_EMAILS = ['ventas@moss.uy'];
 let adminPwd = 'MossAdmin2024'; // kept for legacy, not used for auth
 let isAdmin=false,currentCat='all',editingId=null,tempImgs=[],tempMeasures=[],sortBy='name',sortDir='asc';
@@ -1661,6 +1699,78 @@ async function save(){
     });
     showSyncStatus('saved');
   } catch(e){ console.error('Firebase save error:',e); localSave(); }
+}
+
+// ── Madera helpers ────────────────────────────────────────────────────────────
+function getMaderas(){ return (cfg.maderas && cfg.maderas.length) ? cfg.maderas : [{id:'guatambu',nombre:'Guatambú',pct:0}]; }
+
+function calcMaderaFactor(maderaId){
+  if(!maderaId) return 1;
+  const m = getMaderas().find(x=>x.id===maderaId);
+  if(!m) return 1;
+  const matPct = (cfg.matPct||40) / 100;
+  const inc = (m.pct||0) / 100;
+  return 1 - matPct + matPct * (1 + inc);  // e.g. 0.60 + 0.40×1.35 = 1.14
+}
+
+function adjustCostByMadera(carpCost, maderaId){
+  return carpCost * calcMaderaFactor(maderaId);
+}
+
+function renderMaderasConfig(){
+  const tbody = document.getElementById('maderas-tbody');
+  if(!tbody) return;
+  const matPctEl = document.getElementById('cfg-mat-pct');
+  if(matPctEl) matPctEl.value = cfg.matPct||40;
+  tbody.innerHTML = getMaderas().map(m=>{
+    const isBase = m.pct===0;
+    const cls = isBase?'base':m.pct>0?'up':'down';
+    const label = isBase?'Base':m.pct>0?'+'+m.pct+'%':m.pct+'%';
+    const factor = calcMaderaFactor(m.id);
+    const efecto = isBase?'Sin cambio':(factor>1?'+':'')+(((factor-1)*100).toFixed(1))+'% sobre precio';
+    return '<tr>'+
+      '<td><strong>'+m.nombre+'</strong>'+(isBase?' <span style="font-size:10px;color:#bbb;">(referencia)</span>':'')+'</td>'+
+      '<td><span class="madera-badge '+cls+'">'+label+'</span>'+
+        (isBase?'':' <input type="number" value="'+m.pct+'" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" onchange="updateMaderaGlobal(&quot;'+m.id+'&quot;,+this.value)">')+
+      '</td>'+
+      '<td style="font-size:12px;color:var(--driftwood);">'+efecto+'</td>'+
+      '<td>'+(isBase?'':'<button onclick="eliminarMadera(&quot;'+m.id+'&quot;)" style="background:none;border:none;color:#c0776a;cursor:pointer;font-size:16px;">×</button>')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function updateMaderaGlobal(id, pct){
+  const m = getMaderas().find(x=>x.id===id);
+  if(m){ m.pct=pct; save(); renderMaderasConfig(); toast('Madera actualizada'); }
+}
+
+function agregarMadera(){
+  const nombre = (document.getElementById('nueva-madera-nombre').value||'').trim();
+  const pct = parseFloat(document.getElementById('nueva-madera-pct').value)||0;
+  if(!nombre){ toast('Ingresá el nombre de la madera'); return; }
+  if(!cfg.maderas) cfg.maderas=[];
+  const id = nombre.toLowerCase().replace(/[^a-z0-9]/g,'-');
+  if(cfg.maderas.find(x=>x.id===id)){ toast('Ya existe esa madera'); return; }
+  cfg.maderas.push({id,nombre,pct});
+  document.getElementById('nueva-madera-nombre').value='';
+  document.getElementById('nueva-madera-pct').value='';
+  save(); renderMaderasConfig(); populateMaderaSelect(); toast('Madera agregada');
+}
+
+function eliminarMadera(id){
+  if(!confirm('¿Eliminar esta madera?')) return;
+  cfg.maderas = getMaderas().filter(x=>x.id!==id);
+  // Reset products using this madera to default
+  products.forEach(p=>{ if(p.madera===id) p.madera=''; });
+  save(); renderMaderasConfig(); populateMaderaSelect(); toast('Madera eliminada');
+}
+
+function populateMaderaSelect(){
+  const sel = document.getElementById('f-madera');
+  if(!sel) return;
+  const maderas = getMaderas();
+  sel.innerHTML = '<option value="">Guatambú (default)</option>' +
+    maderas.filter(m=>m.pct!==0).map(m=>'<option value="'+m.id+'">'+m.nombre+(m.pct>0?' (+'+m.pct+'%)':(m.pct+'%'))+'</option>').join('');
 }
 
 // Resize and compress image to fit Firestore 1MB document limit
@@ -2129,7 +2239,7 @@ function renderAdmin(){
 function deleteProduct(id){if(!confirm('¿Eliminar este producto?'))return;products=products.filter(p=>p.id!=id);deleteProduct_fb(id).then(()=>pingSync()).catch(e=>console.warn(e));renderGrid();renderAdmin();renderCats();toast('Producto eliminado');}
 
 function openProductModal(id=null){editingId=id!=null?+id:null;tempImgs=[];tempMeasures=[];document.getElementById('measures-tbody').innerHTML='';document.getElementById('f-img-thumbs').innerHTML='';if(id){const p=products.find(x=>x.id==id);document.getElementById('form-modal-title').textContent='Editar producto';document.getElementById('f-name').value=p.name;
-    document.getElementById('f-sku').value=p.sku||'';document.getElementById('f-desc').value=p.desc||'';document.getElementById('f-upholstery').value=p.upholstery?'si':'no';document.getElementById('f-factor').value=p.factor||'';// Set category without triggering onchange (avoids overwriting SKU)
+    document.getElementById('f-sku').value=p.sku||'';document.getElementById('f-desc').value=p.desc||'';document.getElementById('f-upholstery').value=p.upholstery?'si':'no';document.getElementById('f-factor').value=p.factor||'';populateMaderaSelect();setTimeout(()=>{const ms=document.getElementById('f-madera');if(ms)ms.value=p.madera||'';},50);// Set category without triggering onchange (avoids overwriting SKU)
     // Refresh category select with latest categories (including newly added ones)
     const catEl=document.getElementById('f-cat');
     catEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -2138,7 +2248,8 @@ function openProductModal(id=null){editingId=id!=null?+id:null;tempImgs=[];tempM
     if(catEl.value!==p.cat){ categories.push(p.cat); catEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join(''); catEl.value=p.cat; }tempImgs=[...(p.images||[])];tempMeasures=(p.measures||[]).map(m=>({...m}));renderMeasures();renderThumbsForm();updatePriceBar();}else{document.getElementById('form-modal-title').textContent='Nuevo producto';['f-name','f-sku','f-desc','f-factor'].forEach(i=>document.getElementById(i).value='');document.getElementById('f-upholstery').value='no';
     // Refresh category select
     const newCatEl=document.getElementById('f-cat');
-    if(newCatEl) newCatEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join('');}window._scrollY = window.scrollY;
+    if(newCatEl) newCatEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join('');
+    populateMaderaSelect();}window._scrollY = window.scrollY;
   document.body.style.top = '-' + window._scrollY + 'px';
   document.body.classList.add('modal-open');
   document.getElementById('product-modal').classList.add('open');}
@@ -2402,6 +2513,17 @@ function openQuote(id){
   document.getElementById('qm-title').textContent=p.name;
   document.getElementById('qm-cat-label').textContent=p.cat+(p.upholstery?' · Con tapizado':'');
   document.getElementById('qm-sub').textContent=(p.sku?p.sku:'');
+  // Madera selector
+  const maderas=getMaderas();
+  const qmMaderaWrap=document.getElementById('qm-madera-wrap');
+  const qmMadera=document.getElementById('qm-madera');
+  if(maderas.length>1 && qmMaderaWrap && qmMadera){
+    qmMadera.innerHTML='<option value="">Guatambú (base)</option>'+maderas.filter(m=>m.pct!==0).map(m=>'<option value="'+m.id+'">'+m.nombre+(m.pct>0?' (+'+m.pct+'%)':(m.pct+'%'))+'</option>').join('');
+    qmMadera.value=p.madera||'';
+    qmMaderaWrap.style.display='';
+  } else if(qmMaderaWrap){
+    qmMaderaWrap.style.display='none';
+  }
   // Main image
   const imgWrap=document.getElementById('qm-img-main');
   lbImages=p.images||[];
@@ -2434,7 +2556,7 @@ function qmSetImg(i){
   imgWrap.innerHTML=`<img src="${lbImages[i]}" alt="" onclick="openLightbox(${i})" style="cursor:zoom-in;">`;
   document.querySelectorAll('.qm-thumb').forEach((t,j)=>t.classList.toggle('qm-thumb-active',j===i));
 }
-function selectPreset(i){const p=quoteProduct;const m=p.measures[i];window._lastSelectedMeasure=m;_quoteW=m.w||0;_quoteH=m.h||0;_quoteD=m.d||0;document.querySelectorAll('.preset-pill').forEach((b,j)=>b.classList.toggle('sel',j===i));const d=document.getElementById('qm-preset-dims');d.style.display='block';const varCost=(m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0);
+function selectPreset(i){const p=quoteProduct;const m=p.measures[i];window._lastSelectedMeasure=m;_quoteW=m.w||0;_quoteH=m.h||0;_quoteD=m.d||0;const maderaId=document.getElementById('qm-madera')?.value||p.madera||'';document.querySelectorAll('.preset-pill').forEach((b,j)=>b.classList.toggle('sel',j===i));const d=document.getElementById('qm-preset-dims');d.style.display='block';const varCost=(m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0);
     const computedPrice=calcPrice(quoteProduct,m);
     d.innerHTML=`<strong>${m.name}</strong> — ${m.w}×${m.h}×${m.d} cm`+
       `<span style="color:var(--walnut);font-weight:500;margin-left:10px;">${fmt(computedPrice)}</span>`+
@@ -2454,6 +2576,28 @@ function switchQuoteTab(tab){
     document.getElementById('qm-wapp-wrap').style.display='none';
   }
 }
+function onQuoteMaderaChange(){
+  // Recalculate all presets with new madera
+  const maderaId = document.getElementById('qm-madera')?.value||'';
+  // Rebuild preset pills with updated prices
+  const p = quoteProduct;
+  if(!p) return;
+  const presets = document.getElementById('qm-presets');
+  if(presets && p.measures && p.measures.length){
+    presets.innerHTML = p.measures.map((m,i)=>{
+      const price = calcPrice(p, m, maderaId);
+      return `<div class="preset-pill" onclick="selectPreset(${i})">${m.name}<br><small style="opacity:.7">${m.w}×${m.h}×${m.d}</small></div>`;
+    }).join('');
+  }
+  // Recalc if a preset was already selected
+  if(quoteMode==='preset' && window._lastSelectedMeasure){
+    const idx = p.measures.indexOf(window._lastSelectedMeasure);
+    if(idx>=0) selectPreset(idx);
+  } else if(quoteMode==='custom'){
+    calcCustom();
+  }
+}
+
 function calcCustom(){
   const w=parseFloat(document.getElementById('qc-w').value)||0;
   const h=parseFloat(document.getElementById('qc-h').value)||0;
@@ -2571,13 +2715,13 @@ function openLightbox(i){lbIdx=i;document.getElementById('lb-img').src=lbImages[
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
 function lbNav(dir){lbIdx=(lbIdx+dir+lbImages.length)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIdx];}
 
-function renderSettings(){document.getElementById('cfg-factor').value=cfg.factor;document.getElementById('cfg-currency').value=cfg.currency;
+function renderSettings(){document.getElementById('cfg-factor').value=cfg.factor;document.getElementById('cfg-currency').value=cfg.currency;renderMaderasConfig();
   const ael=document.getElementById('admin-emails-list');
   if(ael) ael.innerHTML=ADMIN_EMAILS.map(e=>`<div style="padding:7px 12px;background:var(--linen);border-radius:6px;font-size:13px;font-family:monospace;margin-bottom:5px;">${e}</div>`).join('');
   const ds=cfg.defaultSort||'name-asc';
   const cfgSort=document.getElementById('cfg-sort');if(cfgSort)cfgSort.value=ds;
   const ss=document.getElementById('sort-select');if(ss)ss.value=ds;document.getElementById('cats-manage').innerHTML=categories.map((c,i)=>`<div class="cat-manage-item"><span class="cat-manage-name">${c}</span><button class="btn-del-cat" onclick="removeCat(${i})">×</button></div>`).join('');}
-function saveCfg(){cfg.factor=parseFloat(document.getElementById('cfg-factor').value)||2.5;cfg.currency=document.getElementById('cfg-currency').value;save();renderGrid();renderAdmin();toast('Configuración guardada');}
+function saveCfg(){cfg.factor=parseFloat(document.getElementById('cfg-factor').value)||2.5;cfg.currency=document.getElementById('cfg-currency').value;cfg.matPct=parseFloat(document.getElementById('cfg-mat-pct').value)||40;save();renderGrid();renderAdmin();renderMaderasConfig();toast('Configuración guardada');}
 function saveSortCfg(){
   const v=document.getElementById('cfg-sort').value;
   cfg.defaultSort=v;
