@@ -2027,17 +2027,27 @@ async function reloadProducts(){
     }
   } catch(e){ console.warn('[Sync] reloadProducts error:', e); }
 }
-function calcPrice(p, measure){
+function calcPrice(p, measure, maderaOverride){
   const m = measure || (p.measures&&p.measures[0]);
-  // Manual price set → use directly
-  if(m && m.price && m.price > 0) return m.price;
-  // Use variant-level costs if set, fallback to product-level costs
+  // Determine madera factor
+  const maderaId = maderaOverride !== undefined ? maderaOverride
+    : (document.getElementById('qm-madera')?.value || p.madera || getMaderas()[0]?.id || '');
+  const maderaFactor = calcMaderaFactor(maderaId);
+  const matPct = (cfg.matPct||40) / 100;
+  // Manual price set → adjust by madera on the carp portion only
+  if(m && m.price && m.price > 0){
+    const adjusted = m.price * (1 - matPct + matPct * maderaFactor);
+    return roundTo90(adjusted);
+  }
+  // Calculate from costs — apply madera factor to carp only
   const hasMeasureCosts = m && ((m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0)) > 0;
   if(hasMeasureCosts){
-    const cost = (m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0);
+    const carpAdjusted = (m.carp||0) * maderaFactor;
+    const rest = (m.lust||0)+(m.extra||0)+(m.tapic||0);
+    const cost = carpAdjusted + rest;
     return roundTo90(cost * (p.factor||cfg.factor));
   }
-  // Fallback: product-level costs (legacy / global defaults)
+  // Fallback: product-level costs
   const cost = (p.carp||0)+(p.lust||0)+(p.extra||0);
   return cost > 0 ? roundTo90(cost * (p.factor||cfg.factor)) : 0;
 }
