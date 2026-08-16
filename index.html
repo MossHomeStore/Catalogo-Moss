@@ -3298,7 +3298,11 @@ function sfPoblarSelects(){
     const cv=ctEl.value;
     // Temporarily remove onchange to prevent spurious trigger
     ctEl.removeAttribute('onchange');
-    ctEl.innerHTML='<option value="">Seleccionar tela...</option>'+sfTelas.map(t=>'<option value="'+t.id+'">'+t.nombre+'</option>').join('');
+    ctEl.innerHTML='<option value="">Seleccionar tela...</option>'+sfTelas.map(t=>{
+      const prov=sfProvTelas.find(x=>x.id===t.proveedor);
+      const label=t.nombre+(prov?' — '+prov.nombre:'');
+      return '<option value="'+t.id+'">'+label+'</option>';
+    }).join('');
     if(cv) ctEl.value=cv;
     ctEl.setAttribute('onchange','sfOnTelaChange()');
   }
