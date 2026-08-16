@@ -13,6 +13,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
 import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import { getStorage, ref as storageRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAadedBeWg1hd-UJWThgNzKWdnTqRbSBKw",
@@ -38,7 +39,13 @@ window._onSnapshot = onSnapshot;
 window._serverTimestamp = serverTimestamp;
 window._fbGetDoc = getDoc;
 window._increment = increment;
-// Firebase Storage: not needed — images compressed client-side
+// Firebase Storage — images stored here, not in Firestore
+const storage = getStorage(app);
+window._storage = storage;
+window._storageRef = storageRef;
+window._uploadString = uploadString;
+window._getDownloadURL = getDownloadURL;
+window._deleteObject = deleteObject;
 
 // Auth setup
 const auth = getAuth(app);
@@ -736,6 +743,15 @@ body.modal-open{overflow:hidden;}
 .madera-badge.base{background:var(--linen-dark);color:var(--walnut);}
 .madera-badge.up{background:#f0f7f0;color:#4a6a2a;}
 .madera-badge.down{background:#fff5f0;color:#c07040;}
+
+/* ===== LAZY LOADING ===== */
+.card-img-wrap img.lazy { opacity:0; transition:opacity .3s; }
+.card-img-wrap img.lazy.loaded { opacity:1; }
+.card-img-placeholder {
+  width:100%; height:100%; display:flex; align-items:center;
+  justify-content:center; background:var(--linen-dark);
+}
+.card-img-placeholder svg { opacity:.3; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -1264,6 +1280,21 @@ body.modal-open{overflow:hidden;}
             <input class="form-input" id="nueva-madera-nombre" placeholder="Nueva madera..." style="width:150px;">
             <input type="number" class="form-input" id="nueva-madera-pct" placeholder="%" style="width:70px;" step="1">
             <button class="btn-secondary" onclick="agregarMadera()">+ Agregar</button>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-card-title">Migración de imágenes a Storage</div>
+          <p style="font-size:13px;color:var(--driftwood);margin-bottom:14px;line-height:1.6;">
+            Las imágenes almacenadas como base64 en Firestore ralentizan la carga del catálogo.
+            Este proceso las migra a Firebase Storage — las futuras cargas serán notablemente más rápidas.
+          </p>
+          <div id="migration-status" style="display:none;font-size:13px;margin-bottom:12px;padding:10px 14px;border-radius:8px;background:var(--linen-dark);"></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button class="btn-primary" id="btn-migrate" onclick="migrateImagesToStorage()">
+              ☁️ Migrar imágenes a Storage
+            </button>
+            <span id="migration-progress" style="font-size:12px;color:var(--driftwood);"></span>
           </div>
         </div>
 
@@ -1829,13 +1860,31 @@ async function compressImage(dataUrl, maxSize=800, quality=0.72){
 
 // Compress all images before saving
 async function uploadImagesToStorage(productId, images){
-  if(!images || !images.length) return images;
-  const compressed = [];
+  if(!images || !images.length) return [];
+  const urls = [];
   for(let i = 0; i < images.length; i++){
-    const result = await compressImage(images[i]);
-    compressed.push(result);
+    const img = images[i];
+    // Already a URL (previously uploaded to Storage) — keep as-is
+    if(typeof img === 'string' && img.startsWith('http')){
+      urls.push(img);
+      continue;
+    }
+    // base64 — compress then upload to Firebase Storage
+    try {
+      const compressed = await compressImage(img);
+      const path = 'products/' + String(productId) + '/img_' + i + '_' + Date.now() + '.jpg';
+      const ref = window._storageRef(window._storage, path);
+      await window._uploadString(ref, compressed, 'data_url');
+      const url = await window._getDownloadURL(ref);
+      urls.push(url);
+      console.log('[Storage] Uploaded img', i, '→', path);
+    } catch(e){
+      console.error('[Storage] Upload failed for img', i, e);
+      // Fallback: keep compressed base64 if upload fails
+      urls.push(await compressImage(img));
+    }
   }
-  return compressed;
+  return urls;
 }
 
 // Notify other devices — simple timestamp write
@@ -2221,8 +2270,26 @@ list.sort((a,b)=>{
   else if(sortBy==='price'){va=calcPrice(a,a.measures&&a.measures[0])||0;vb=calcPrice(b,b.measures&&b.measures[0])||0;}
   if(typeof va==='string') return sortDir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
   return sortDir==='asc'?va-vb:vb-va;
-});if(!list.length){grid.innerHTML=`<div class="empty-state"><div class="empty-icon">🪑</div><div class="empty-title">Sin productos aquí</div><div class="empty-text">${isAdmin?'Agregá un producto con el botón &quot;+ Nuevo producto&quot;':'Consultanos para más información'}</div></div>`;return;}grid.innerHTML=list.map(p=>{const price=calcPrice(p, p.measures&&p.measures[0]);const imgHtml=p.images&&p.images.length?`<div class="card-img-wrap"><img src="${p.images[0]}" alt="${p.name}" loading="lazy"><div class="img-badge">📷 ${p.images.length}</div></div>`:`<div class="card-no-img"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;const ms=p.measures&&p.measures.length?`${p.measures[0].w}×${p.measures[0].h}×${p.measures[0].d} cm`+(p.measures.length>1?` +${p.measures.length-1} medidas`:''):'';const editBtn=isAdmin?`<button class="btn-edit-card" onclick="event.stopPropagation();openProductModal(${p.id})">✏️</button>`:'';return`<div class="product-card" onclick="openQuote(${p.id})">${imgHtml}<div class="card-body"><div class="card-cat">${p.cat}${p.upholstery?' · tapizado':''}</div><div class="card-name">${p.name}</div><div class="card-price">${price?fmt(price):'—'}</div><div class="card-dims">${ms}</div>${p.upholstery?'<span class="card-tag">Con tapizado</span>':''}</div><div class="card-footer"><button class="btn-quote" onclick="event.stopPropagation();openQuote(${p.id})">Cotizar</button>${editBtn}</div></div>`;}).join('');}
+});if(!list.length){grid.innerHTML=`<div class="empty-state"><div class="empty-icon">🪑</div><div class="empty-title">Sin productos aquí</div><div class="empty-text">${isAdmin?'Agregá un producto con el botón &quot;+ Nuevo producto&quot;':'Consultanos para más información'}</div></div>`;return;}grid.innerHTML=list.map(p=>{const price=calcPrice(p, p.measures&&p.measures[0]);const imgHtml=p.images&&p.images.length?`<div class="card-img-wrap"><img data-src="${p.images[0]}" alt="${p.name}" class="lazy"><div class="img-badge">📷 ${p.images.length}</div></div>`:`<div class="card-no-img"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;const ms=p.measures&&p.measures.length?`${p.measures[0].w}×${p.measures[0].h}×${p.measures[0].d} cm`+(p.measures.length>1?` +${p.measures.length-1} medidas`:''):'';const editBtn=isAdmin?`<button class="btn-edit-card" onclick="event.stopPropagation();openProductModal(${p.id})">✏️</button>`:'';return`<div class="product-card" onclick="openQuote(${p.id})">${imgHtml}<div class="card-body"><div class="card-cat">${p.cat}${p.upholstery?' · tapizado':''}</div><div class="card-name">${p.name}</div><div class="card-price">${price?fmt(price):'—'}</div><div class="card-dims">${ms}</div>${p.upholstery?'<span class="card-tag">Con tapizado</span>':''}</div><div class="card-footer"><button class="btn-quote" onclick="event.stopPropagation();openQuote(${p.id})">Cotizar</button>${editBtn}</div></div>`;}).join('');initLazyImages();}
 
+
+function initLazyImages(){
+  if(window._lazyObserver) window._lazyObserver.disconnect();
+  window._lazyObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if(!e.isIntersecting) return;
+      const img = e.target;
+      const src = img.getAttribute('data-src');
+      if(src){
+        img.src = src;
+        img.removeAttribute('data-src');
+        img.addEventListener('load', ()=>img.classList.add('loaded'), {once:true});
+      }
+      window._lazyObserver.unobserve(img);
+    });
+  }, {rootMargin:'200px'});
+  document.querySelectorAll('img.lazy[data-src]').forEach(img=>window._lazyObserver.observe(img));
+}
 function renderAdmin(){
   var cf=document.getElementById('admin-cat-filter');
   if(cf){var cv=cf.value;cf.innerHTML='<option value="all">Todas las categorías</option>'+categories.map(function(c){return '<option value="'+c+'"'+(cv===c?' selected':'')+'>'+c+'</option>';}).join('');}
@@ -2758,6 +2825,91 @@ function renderSettings(){document.getElementById('cfg-factor').value=cfg.factor
   const ds=cfg.defaultSort||'name-asc';
   const cfgSort=document.getElementById('cfg-sort');if(cfgSort)cfgSort.value=ds;
   const ss=document.getElementById('sort-select');if(ss)ss.value=ds;document.getElementById('cats-manage').innerHTML=categories.map((c,i)=>`<div class="cat-manage-item"><span class="cat-manage-name">${c}</span><button class="btn-del-cat" onclick="removeCat(${i})">×</button></div>`).join('');}
+
+// ========== IMAGE MIGRATION TO FIREBASE STORAGE ==========
+async function migrateImagesToStorage(){
+  const btn = document.getElementById('btn-migrate');
+  const status = document.getElementById('migration-status');
+  const progress = document.getElementById('migration-progress');
+
+  // Check how many products need migration
+  const toMigrate = products.filter(p =>
+    p.images && p.images.some(img => typeof img === 'string' && img.startsWith('data:'))
+  );
+
+  if(!toMigrate.length){
+    status.style.display = 'block';
+    status.style.background = '#f0f7f0';
+    status.style.color = '#4a6a2a';
+    status.textContent = '✓ Todas las imágenes ya están en Firebase Storage.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Migrando...';
+  status.style.display = 'block';
+  status.style.background = 'var(--linen-dark)';
+  status.style.color = 'var(--espresso)';
+
+  let done = 0, errors = 0, totalImgs = 0;
+
+  for(const p of toMigrate){
+    const base64imgs = p.images.filter(img => img && img.startsWith('data:'));
+    totalImgs += base64imgs.length;
+    status.textContent = `Migrando "${p.name}"... (${done + 1}/${toMigrate.length} productos)`;
+    progress.textContent = '';
+
+    try {
+      // Upload each base64 image to Storage
+      const newUrls = [];
+      for(let i = 0; i < p.images.length; i++){
+        const img = p.images[i];
+        if(typeof img === 'string' && img.startsWith('data:')){
+          const path = 'products/' + String(p.id) + '/img_' + i + '_' + Date.now() + '.jpg';
+          const ref = window._storageRef(window._storage, path);
+          await window._uploadString(ref, img, 'data_url');
+          const url = await window._getDownloadURL(ref);
+          newUrls.push(url);
+        } else {
+          // Already a URL — keep as-is
+          newUrls.push(img);
+        }
+      }
+
+      // Update product in Firestore with new URLs
+      const pUpdated = Object.assign({}, p, { images: newUrls });
+      await window._setDoc(window._doc(window._db, 'moss_products', String(p.id)), pUpdated);
+
+      // Update local product array
+      const idx = products.findIndex(x => String(x.id) === String(p.id));
+      if(idx > -1) products[idx].images = newUrls;
+
+      done++;
+      progress.textContent = done + '/' + toMigrate.length + ' productos ✓';
+    } catch(e){
+      console.error('[Migrate] Error on product:', p.name, e);
+      errors++;
+      progress.textContent = 'Error en "' + p.name + '": ' + e.message;
+    }
+  }
+
+  // Done
+  btn.disabled = false;
+  btn.textContent = '☁️ Migrar imágenes a Storage';
+
+  if(errors === 0){
+    status.style.background = '#f0f7f0';
+    status.style.color = '#4a6a2a';
+    status.textContent = '✓ Migración completa: ' + done + ' producto(s), ' + totalImgs + ' imagen(es) ahora en Firebase Storage.';
+    renderGrid();
+    toast('Migración completa — el catálogo cargará más rápido');
+  } else {
+    status.style.background = '#fff5f0';
+    status.style.color = '#c07040';
+    status.textContent = '⚠ Migración parcial: ' + done + ' OK, ' + errors + ' con error. Intentá de nuevo.';
+  }
+}
+
 function saveCfg(){cfg.factor=parseFloat(document.getElementById('cfg-factor').value)||2.5;cfg.currency=document.getElementById('cfg-currency').value;cfg.matPct=parseFloat(document.getElementById('cfg-mat-pct').value)||40;save();renderGrid();renderAdmin();renderMaderasConfig();toast('Configuración guardada');}
 function saveSortCfg(){
   const v=document.getElementById('cfg-sort').value;
@@ -3125,11 +3277,34 @@ function sfPoblarSelects(){
   const tpEl = document.getElementById('sf-tela-prov');
   if(tpEl) tpEl.innerHTML = '<option value="">Sin proveedor</option>' +
     sfProvTelas.map(p=>'<option value="'+p.id+'">'+p.nombre+'</option>').join('');
-  // Cotizar selects
+
+  // Cotizar selects — save ALL field values before rebuilding to prevent
+  // browser autocomplete or spurious onchange from modifying largo
+  const largoEl = document.getElementById('sf-cot-largo');
+  const largoVal = largoEl ? largoEl.value : '';
+
   const csEl = document.getElementById('sf-cot-sofa');
-  if(csEl){ const cv=csEl.value; csEl.innerHTML='<option value="">Seleccionar modelo...</option>'+sfSofas.map(s=>'<option value="'+s.id+'">'+s.nombre+'</option>').join(''); if(cv)csEl.value=cv; }
+  if(csEl){
+    const cv=csEl.value;
+    // Temporarily remove onchange to prevent spurious trigger
+    csEl.removeAttribute('onchange');
+    csEl.innerHTML='<option value="">Seleccionar modelo...</option>'+sfSofas.map(s=>'<option value="'+s.id+'">'+s.nombre+'</option>').join('');
+    if(cv) csEl.value=cv;
+    csEl.setAttribute('onchange','sfOnSofaChange()');
+  }
+
   const ctEl = document.getElementById('sf-cot-tela');
-  if(ctEl){ const cv=ctEl.value; ctEl.innerHTML='<option value="">Seleccionar tela...</option>'+sfTelas.map(t=>'<option value="'+t.id+'">'+t.nombre+' (USD '+Number(t.precio||0).toFixed(2)+' | '+Number(t.ancho||0)+'m)</option>').join(''); if(cv)ctEl.value=cv; }
+  if(ctEl){
+    const cv=ctEl.value;
+    // Temporarily remove onchange to prevent spurious trigger
+    ctEl.removeAttribute('onchange');
+    ctEl.innerHTML='<option value="">Seleccionar tela...</option>'+sfTelas.map(t=>'<option value="'+t.id+'">'+t.nombre+'</option>').join('');
+    if(cv) ctEl.value=cv;
+    ctEl.setAttribute('onchange','sfOnTelaChange()');
+  }
+
+  // Restore largo value in case browser modified it
+  if(largoEl && largoVal) largoEl.value = largoVal;
 }
 
 function sfRenderSofas(){
