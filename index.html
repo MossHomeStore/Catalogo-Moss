@@ -1070,15 +1070,15 @@ body.modal-open{overflow:hidden;}
               <label for="sf-cot-esquinero" style="font-size:13px;text-transform:none;letter-spacing:0;color:var(--espresso);cursor:pointer;margin:0;">Esquinero / Rinconero</label>
             </div>
             <div id="sf-esquinero-info" style="display:none;">
-              <div style="font-size:11px;color:var(--driftwood);margin-bottom:8px;">Ingresá los largos de cada módulo por separado</div>
+              <div style="font-size:11px;color:var(--driftwood);margin-bottom:8px;">Ingresá las dimensiones totales del esquinero</div>
               <div class="form-row-2">
                 <div class="form-group">
-                  <label class="form-label">Módulo 1 (cm)</label>
+                  <label class="form-label">Lado A (cm)</label>
                   <input class="form-input" type="number" id="sf-esq-mod1" placeholder="Ej: 300" min="1" oninput="sfCalc()">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Módulo 2 (cm)</label>
-                  <input class="form-input" type="number" id="sf-esq-mod2" placeholder="Ej: 210" min="1" oninput="sfCalc()">
+                  <label class="form-label">Lado B (cm)</label>
+                  <input class="form-input" type="number" id="sf-esq-mod2" placeholder="Ej: 260" min="1" oninput="sfCalc()">
                 </div>
               </div>
               <div class="sf-info-box" id="sf-esquinero-modulos" style="margin-top:0;font-size:12px;"></div>
@@ -3603,9 +3603,18 @@ function sfCalc(){
   let largoLabel = largo+' cm';
 
   if(esEsquinero){
-    const largoMod1 = parseFloat(document.getElementById('sf-esq-mod1').value)||0;
-    const largoMod2 = parseFloat(document.getElementById('sf-esq-mod2').value)||0;
-    if(!largoMod1||!largoMod2){sfShowEmpty();return;}
+    const ladoA = parseFloat(document.getElementById('sf-esq-mod1').value)||0;
+    const ladoB = parseFloat(document.getElementById('sf-esq-mod2').value)||0;
+    if(!ladoA||!ladoB){sfShowEmpty();return;}
+    // Módulo 1 = lado A, Módulo 2 = lado B − 90cm (profundidad fija)
+    const profFija = 90;
+    const largoMod1 = ladoA;
+    const largoMod2 = ladoB - profFija;
+    if(largoMod2 <= 0){
+      document.getElementById('sf-esquinero-modulos').innerHTML =
+        '<span style="color:#c07040;">⚠ Lado B debe ser mayor a '+profFija+' cm</span>';
+      sfShowEmpty(); return;
+    }
 
     const mod1 = sfCalcModulo(sofa, tela, largoMod1, tc);
     const mod2 = sfCalcModulo(sofa, tela, largoMod2, tc);
@@ -3616,14 +3625,14 @@ function sfCalc(){
     costoTelaPesos= mod1.costoTelaPesos + mod2.costoTelaPesos;
     costoTotal    = precioSofa + costoTelaPesos + costF;
     precioLista   = sfRedondear(costoTotal * sfFactor);
-    largoLabel    = largoMod1+' + '+largoMod2+' cm';
+    largoLabel    = ladoA+' × '+ladoB+' cm (esquinero)';
 
-    // Update info box
+    // Info box: show how each module was calculated
     document.getElementById('sf-esquinero-modulos').innerHTML =
       '<strong>Módulo 1:</strong> '+largoMod1+' cm — '+mod1.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod1.precioSofa)+'<br>'+
-      '<strong>Módulo 2:</strong> '+largoMod2+' cm — '+mod2.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod2.precioSofa);
+      '<strong>Módulo 2:</strong> '+largoMod2+' cm ('+ladoB+' − '+profFija+') — '+mod2.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod2.precioSofa);
 
-    // Show esquinero rows
+    // Show esquinero rows in result
     ['sfr-esq-mod1-row','sfr-esq-mod2-row','sfr-esq-tela-row'].forEach(id=>document.getElementById(id).style.display='flex');
     document.getElementById('sfr-esq-mod1').textContent=largoMod1+' cm — '+mod1.metrosTela.toFixed(2)+'m — $'+sfFmt(mod1.precioSofa);
     document.getElementById('sfr-esq-mod2').textContent=largoMod2+' cm — '+mod2.metrosTela.toFixed(2)+'m — $'+sfFmt(mod2.precioSofa);
@@ -3669,8 +3678,8 @@ function sfCalc(){
     '─────────────────────',
     cliente?'Cliente: '+cliente:'',
     'Modelo: '+sofa.nombre+(esEsquinero?' (Esquinero)':''),
-    esEsquinero?'Módulo 1: '+(parseFloat(document.getElementById('sf-esq-mod1').value)||0)+' cm':'Largo: '+largo+' cm',
-    esEsquinero?'Módulo 2: '+(parseFloat(document.getElementById('sf-esq-mod2').value)||0)+' cm':'',
+    esEsquinero?'Dimensiones: '+(parseFloat(document.getElementById('sf-esq-mod1').value)||0)+' × '+(parseFloat(document.getElementById('sf-esq-mod2').value)||0)+' cm':'Largo: '+largo+' cm',
+    esEsquinero?'Módulo 1: '+(parseFloat(document.getElementById('sf-esq-mod1').value)||0)+' cm / Módulo 2: '+((parseFloat(document.getElementById('sf-esq-mod2').value)||0)-90)+' cm':'',
     'Tela: '+tela.nombre+' ('+anchoTela+'m)',
     'Metros totales: '+metrosTela.toFixed(2)+' m',
     'Precio de lista: '+sfPrecioStr,
