@@ -189,7 +189,7 @@ body.modal-open{overflow:hidden;}
 .qr-left .qr-dims{font-size:11px;opacity:.65;margin-top:2px;}
 .qr-right .qr-price{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:300;}
 .qr-right .qr-note{font-size:10px;opacity:.6;text-align:right;}
-.wapp-btn{display:flex;align-items:center;gap:8px;justify-content:center;background:#25d366;color:white;border:none;border-radius:7px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:background .2s;text-decoration:none;width:100%;margin-top:10px;box-sizing:border-box;}
+.wapp-btn{display:flex;align-items:center;gap:8px;justify-content:center;background:#25d366;color:white;border:none;border-radius:7px;padding:10px 16px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:background .2s;text-decoration:none;width:100%;margin-top:10px;box-sizing:border-box;max-width:100%;}
 .wapp-btn:hover{background:#1ebe5e;}
 .admin-table-wrap{overflow-x:auto;}
 .admin-table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -470,6 +470,16 @@ body.modal-open{overflow:hidden;}
   .sf-nav{ overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; }
   .sf-nav-btn{ flex-shrink:0; padding:9px 14px; font-size:12px; }
   .sf-grid-2{ grid-template-columns:1fr; gap:12px; }
+  /* Sofas cotizar mobile fixes */
+  #view-sofas{ max-width:100%; overflow-x:hidden; }
+  .sf-result-box{ padding:14px 16px; }
+  .sf-result-row{ font-size:12px; flex-wrap:wrap; gap:4px; }
+  .sf-total{ flex-wrap:wrap; gap:4px; }
+  .sf-total-value{ font-size:20px; }
+  .sf-lista{ flex-wrap:wrap; gap:4px; }
+  .sf-lista-value{ font-size:26px; }
+  .sf-lista-label{ font-size:14px; }
+  #sfr-factor-used{ font-size:11px; }
 
   /* ---- Price adjustment preview table ---- */
   .price-adj-preview-table{ display:block; }
@@ -616,9 +626,9 @@ body.modal-open{overflow:hidden;}
 .sf-section { display:none; }
 .sf-section.active { display:block; overflow-y:auto; }
 .sf-tc-bar { background:var(--linen); border:1px solid var(--border); border-radius:8px; padding:10px 16px; margin-bottom:18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
-.sf-result-box { background:var(--espresso); color:var(--white); border-radius:10px; padding:20px 24px; margin-top:16px; }
+.sf-result-box { background:var(--espresso); color:var(--white); border-radius:10px; padding:20px 24px; margin-top:16px; box-sizing:border-box; width:100%; overflow:hidden; }
 .sf-result-box h4 { font-size:11px; color:var(--sand); margin-bottom:12px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; }
-.sf-result-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:13px; }
+.sf-result-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:13px; gap:8px; min-width:0; }
 .sf-result-label { color:var(--driftwood); }
 .sf-result-value { font-weight:500; }
 .sf-total { margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.2); display:flex; justify-content:space-between; align-items:baseline; }
@@ -1021,7 +1031,7 @@ body.modal-open{overflow:hidden;}
     </div>
 
     <!-- SOFAS VIEW -->
-    <div id="view-sofas" style="display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+    <div id="view-sofas" style="display:none;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;max-width:100%;">
       <div class="content-header">
         <div class="content-title">Cotizador de Sofás</div>
       </div>
@@ -1053,6 +1063,25 @@ body.modal-open{overflow:hidden;}
             <div class="form-group"><label class="form-label">Largo deseado (cm)</label>
               <input class="form-input" type="number" id="sf-cot-largo" placeholder="Ej: 220" min="1" oninput="sfCalc()">
               <div style="font-size:11px;color:var(--driftwood);margin-top:3px;" id="sf-largo-hint"></div>
+            </div>
+            <!-- Esquinero / Rinconero -->
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" id="sf-cot-esquinero" onchange="sfToggleEsquinero()" style="width:auto;">
+              <label for="sf-cot-esquinero" style="font-size:13px;text-transform:none;letter-spacing:0;color:var(--espresso);cursor:pointer;margin:0;">Esquinero / Rinconero</label>
+            </div>
+            <div id="sf-esquinero-info" style="display:none;">
+              <div style="font-size:11px;color:var(--driftwood);margin-bottom:8px;">Ingresá los largos de cada módulo por separado</div>
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label class="form-label">Módulo 1 (cm)</label>
+                  <input class="form-input" type="number" id="sf-esq-mod1" placeholder="Ej: 300" min="1" oninput="sfCalc()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Módulo 2 (cm)</label>
+                  <input class="form-input" type="number" id="sf-esq-mod2" placeholder="Ej: 210" min="1" oninput="sfCalc()">
+                </div>
+              </div>
+              <div class="sf-info-box" id="sf-esquinero-modulos" style="margin-top:0;font-size:12px;"></div>
             </div>
             <div class="divider"></div>
             <div class="form-group"><label class="form-label">Tela <span style="font-size:10px;background:#e8f0d4;color:#4a6a2a;border-radius:4px;padding:1px 6px;font-weight:600;">USD</span></label>
@@ -1088,7 +1117,11 @@ body.modal-open{overflow:hidden;}
                 <div class="sf-result-row"><span class="sf-result-label">Metros lineales</span><span class="sf-result-value" id="sfr-metros">-</span></div>
                 <div class="sf-result-row"><span class="sf-result-label">Costo tela (USD)</span><span class="sf-result-value" id="sfr-tela-usd">-</span></div>
                 <div class="sf-result-row"><span class="sf-result-label">Costo tela ($)</span><span class="sf-result-value" id="sfr-tela-pesos">-</span></div>
-                <div class="sf-result-row"><span class="sf-result-label">Precio sofá proporcional</span><span class="sf-result-value" id="sfr-precio-sofa">-</span></div>
+                <div class="sf-result-row" id="sfr-precio-sofa-row"><span class="sf-result-label">Precio sofá proporcional</span><span class="sf-result-value" id="sfr-precio-sofa">-</span></div>
+                <!-- Esquinero rows -->
+                <div class="sf-result-row" id="sfr-esq-mod1-row" style="display:none;"><span class="sf-result-label">Módulo 1 (largo)</span><span class="sf-result-value" id="sfr-esq-mod1">-</span></div>
+                <div class="sf-result-row" id="sfr-esq-mod2-row" style="display:none;"><span class="sf-result-label">Módulo 2 (largo−prof.)</span><span class="sf-result-value" id="sfr-esq-mod2">-</span></div>
+                <div class="sf-result-row" id="sfr-esq-tela-row" style="display:none;"><span class="sf-result-label">Tela total (2 módulos)</span><span class="sf-result-value" id="sfr-esq-tela">-</span></div>
                 <div class="sf-result-row"><span class="sf-result-label">Factor aplicado</span><span class="sf-result-value" id="sfr-factor-used" style="color:var(--driftwood);font-size:12px;">-</span></div>
                 <div class="sf-result-row" id="sfr-funda-row" style="display:none;"><span class="sf-result-label">Funda</span><span class="sf-result-value" id="sfr-funda">-</span></div>
                 <div class="sf-total"><span class="sf-total-label">Costo Total</span><span class="sf-total-value" id="sfr-total">$0</span></div>
@@ -3531,7 +3564,23 @@ function sfToggleFunda(){
   document.getElementById('sf-funda-fields').style.display=document.getElementById('sf-cot-funda').checked?'block':'none';
   sfCalc();
 }
+function sfToggleEsquinero(){
+  const esq=document.getElementById('sf-cot-esquinero').checked;
+  document.getElementById('sf-esquinero-info').style.display=esq?'block':'none';
+  sfCalc();
+}
 function sfFmt(n){ return n.toLocaleString('es-UY',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function sfCalcModulo(sofa, tela, largo, tc){
+  // Calculate a single module: returns {precioSofa, metrosTela, costoTelaUsd, costoTelaPesos}
+  const anchoRef = parseFloat(sofa.anchoRef)||1;
+  const anchoTela = parseFloat(tela.ancho)||1;
+  const precioSofa = (largo * sofa.precioRef) / sofa.largoRef;
+  const metrosTela = (largo * (sofa.telaRef * anchoRef / anchoTela)) / sofa.largoRef;
+  const costoTelaUsd = metrosTela * tela.precio;
+  const costoTelaPesos = costoTelaUsd * tc;
+  return {precioSofa, metrosTela, costoTelaUsd, costoTelaPesos};
+}
 
 function sfCalc(){
   const sId=document.getElementById('sf-cot-sofa').value;
@@ -3543,22 +3592,60 @@ function sfCalc(){
   const largo=parseFloat(largoStr);
   if(!sofa||!tela||isNaN(largo)||largo<=0){sfShowEmpty();return;}
   const tc=sfTc();
-  const precioSofa=(largo*sofa.precioRef)/sofa.largoRef;
-  const anchoRef=parseFloat(sofa.anchoRef)||1;
   const anchoTela=parseFloat(tela.ancho)||1;
-  const metrosTela=(largo*(sofa.telaRef*anchoRef/anchoTela))/sofa.largoRef;
-  const costoTelaUsd=metrosTela*tela.precio;
-  const costoTelaPesos=costoTelaUsd*tc;
+  const sfFactor=(sofa.factor&&sofa.factor>0)?sofa.factor:(cfg.factor||2);
   const conF=document.getElementById('sf-cot-funda').checked;
   const costF=conF?(parseFloat(document.getElementById('sf-funda-precio').value)||0):0;
-  const costoTotal=precioSofa+costoTelaPesos+costF;
-  // Use model-specific factor if set, otherwise use catalog global factor
-  const sfFactor = (sofa.factor && sofa.factor > 0) ? sofa.factor : (cfg.factor || 2);
-  const precioLista=sfRedondear(costoTotal*sfFactor);
+  const esEsquinero=document.getElementById('sf-cot-esquinero').checked;
 
+  // ── Esquinero mode ────────────────────────────────────────────────────────
+  let precioSofa, metrosTela, costoTelaUsd, costoTelaPesos, costoTotal, precioLista;
+  let largoLabel = largo+' cm';
+
+  if(esEsquinero){
+    const largoMod1 = parseFloat(document.getElementById('sf-esq-mod1').value)||0;
+    const largoMod2 = parseFloat(document.getElementById('sf-esq-mod2').value)||0;
+    if(!largoMod1||!largoMod2){sfShowEmpty();return;}
+
+    const mod1 = sfCalcModulo(sofa, tela, largoMod1, tc);
+    const mod2 = sfCalcModulo(sofa, tela, largoMod2, tc);
+
+    precioSofa    = mod1.precioSofa + mod2.precioSofa;
+    metrosTela    = mod1.metrosTela + mod2.metrosTela;
+    costoTelaUsd  = mod1.costoTelaUsd + mod2.costoTelaUsd;
+    costoTelaPesos= mod1.costoTelaPesos + mod2.costoTelaPesos;
+    costoTotal    = precioSofa + costoTelaPesos + costF;
+    precioLista   = sfRedondear(costoTotal * sfFactor);
+    largoLabel    = largoMod1+' + '+largoMod2+' cm';
+
+    // Update info box
+    document.getElementById('sf-esquinero-modulos').innerHTML =
+      '<strong>Módulo 1:</strong> '+largoMod1+' cm — '+mod1.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod1.precioSofa)+'<br>'+
+      '<strong>Módulo 2:</strong> '+largoMod2+' cm — '+mod2.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod2.precioSofa);
+
+    // Show esquinero rows
+    ['sfr-esq-mod1-row','sfr-esq-mod2-row','sfr-esq-tela-row'].forEach(id=>document.getElementById(id).style.display='flex');
+    document.getElementById('sfr-esq-mod1').textContent=largoMod1+' cm — '+mod1.metrosTela.toFixed(2)+'m — $'+sfFmt(mod1.precioSofa);
+    document.getElementById('sfr-esq-mod2').textContent=largoMod2+' cm — '+mod2.metrosTela.toFixed(2)+'m — $'+sfFmt(mod2.precioSofa);
+    document.getElementById('sfr-esq-tela').textContent=metrosTela.toFixed(2)+' m lineales total';
+    document.getElementById('sfr-precio-sofa-row').style.display='none';
+  } else {
+    const mod = sfCalcModulo(sofa, tela, largo, tc);
+    precioSofa    = mod.precioSofa;
+    metrosTela    = mod.metrosTela;
+    costoTelaUsd  = mod.costoTelaUsd;
+    costoTelaPesos= mod.costoTelaPesos;
+    costoTotal    = precioSofa + costoTelaPesos + costF;
+    precioLista   = sfRedondear(costoTotal * sfFactor);
+    // Hide esquinero rows
+    ['sfr-esq-mod1-row','sfr-esq-mod2-row','sfr-esq-tela-row'].forEach(id=>document.getElementById(id).style.display='none');
+    document.getElementById('sfr-precio-sofa-row').style.display='flex';
+  }
+
+  // ── Populate result ───────────────────────────────────────────────────────
   document.getElementById('sfr-cliente').textContent=document.getElementById('sf-cliente').value.trim()||'—';
-  document.getElementById('sfr-modelo').textContent=sofa.nombre;
-  document.getElementById('sfr-largo').textContent=largo.toLocaleString('es-UY')+' cm';
+  document.getElementById('sfr-modelo').textContent=sofa.nombre+(esEsquinero?' — Esquinero':'');
+  document.getElementById('sfr-largo').textContent=largoLabel;
   document.getElementById('sfr-tela').textContent=tela.nombre+' ('+anchoTela+'m)';
   document.getElementById('sfr-metros').textContent=metrosTela.toFixed(2)+' m';
   document.getElementById('sfr-tela-usd').textContent='USD '+sfFmt(costoTelaUsd);
@@ -3569,23 +3656,23 @@ function sfCalc(){
   if(conF) document.getElementById('sfr-funda').textContent='$'+sfFmt(costF);
   document.getElementById('sfr-total').textContent='$'+sfFmt(costoTotal);
   document.getElementById('sfr-lista').textContent='$'+Math.round(precioLista).toLocaleString('es-UY');
-  // Show which factor was applied
   const sfFactorEl=document.getElementById('sfr-factor-used');
   if(sfFactorEl) sfFactorEl.textContent='×'+sfFactor+(sofa.factor?'':' (factor global)');
   document.getElementById('sf-resultado').style.display='block';
   document.getElementById('sf-empty').style.display='none';
 
-    // WhatsApp link
+  // ── WhatsApp ──────────────────────────────────────────────────────────────
   const cliente=document.getElementById('sf-cliente').value.trim();
   const sfPrecioStr='$'+Math.round(precioLista).toLocaleString('es-UY');
   const sfLineas=[
     'Cotizacion Moss Home Store - Sofas',
     '─────────────────────',
     cliente?'Cliente: '+cliente:'',
-    'Modelo: '+sofa.nombre,
-    'Largo: '+largo+' cm',
+    'Modelo: '+sofa.nombre+(esEsquinero?' (Esquinero)':''),
+    esEsquinero?'Módulo 1: '+(parseFloat(document.getElementById('sf-esq-mod1').value)||0)+' cm':'Largo: '+largo+' cm',
+    esEsquinero?'Módulo 2: '+(parseFloat(document.getElementById('sf-esq-mod2').value)||0)+' cm':'',
     'Tela: '+tela.nombre+' ('+anchoTela+'m)',
-    'Metros: '+metrosTela.toFixed(2)+' m',
+    'Metros totales: '+metrosTela.toFixed(2)+' m',
     'Precio de lista: '+sfPrecioStr,
     '─────────────────────',
     'Aceptamos tarjetas de credito',
@@ -3593,9 +3680,9 @@ function sfCalc(){
     '─────────────────────',
     'Avda. Rivera 2157, Montevideo - @moss.uy',
     'Precio estimado. Sujeto a confirmacion.'
-  ].filter(function(l){return l!=='';}).join('\n');
+  ].filter(l=>l!=='').join('\n');
   const msg=encodeURIComponent(sfLineas);
-    const wl=document.getElementById('sf-wapp-link');
+  const wl=document.getElementById('sf-wapp-link');
   wl.href='https://wa.me/?text='+msg;
   wl.style.display='flex';
 }
@@ -3609,6 +3696,11 @@ function sfLimpiar(){
   ['sf-cot-sofa','sf-cot-tela','sf-cot-largo','sf-cliente','sf-funda-precio','sf-funda-desc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('sf-cot-funda').checked=false;
   document.getElementById('sf-funda-fields').style.display='none';
+  document.getElementById('sf-cot-esquinero').checked=false;
+  document.getElementById('sf-esquinero-info').style.display='none';
+  const m1=document.getElementById('sf-esq-mod1');if(m1)m1.value='';
+  const m2=document.getElementById('sf-esq-mod2');if(m2)m2.value='';
+  const esqInfo=document.getElementById('sf-esquinero-modulos');if(esqInfo)esqInfo.innerHTML='';
   document.getElementById('sf-sofa-info').style.display='none';
   document.getElementById('sf-tela-info').style.display='none';
   document.getElementById('sf-largo-hint').textContent='';
