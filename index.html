@@ -4829,7 +4829,7 @@ async function syncSofasToProducts(){
   }
 
   toast('✓ '+sfSofas.length+' sofás sincronizados al catálogo');
-  await loadProducts();
+  await loadFromFirebase();
 }
 
 </script>
