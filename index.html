@@ -4795,18 +4795,21 @@ async function syncSofasToProducts(){
   const catSel=document.getElementById('sofa-sync-cat');
   const sofaCat=catSel?catSel.value:'';
   if(!sofaCat){toast('Seleccioná una categoría primero');return;}
-  if(!confirm('Esto va a borrar los sofás actuales en "'+sofaCat+'" y reemplazarlos con los modelos del cotizador. ¿Continuar?'))return;
+  if(!confirm('Esto va a borrar los productos actuales en "'+sofaCat+'" y reemplazarlos con los modelos del cotizador. ¿Continuar?'))return;
   toast('Sincronizando sofás...');
 
-  // 1. Borrar productos existentes con esa categoría
-  const existingSnap = await getDocs(collection(db,'moss_products'));
+  // 1. Borrar SOLO productos en moss_products con la categoría seleccionada
+  const existingSnap = await window._getDocs(window._collection(window._db,'moss_products'));
   const toDelete = [];
-  existingSnap.forEach(d=>{ if(d.data().cat===sofaCat) toDelete.push(d.id); });
+  existingSnap.forEach(d=>{
+    const data=d.data();
+    if(data.cat===sofaCat) toDelete.push(d.id);
+  });
   for(const did of toDelete){
-    await deleteDoc(doc(db,'moss_products',did));
+    await window._deleteDoc(window._doc(window._db,'moss_products',did));
   }
 
-  // 2. Crear un producto por cada modelo en sfSofas
+  // 2. Crear un producto en moss_products por cada modelo en sfSofas
   for(const sofa of sfSofas){
     const pid = 'sofa_'+sofa.id;
     const productData = {
@@ -4822,7 +4825,7 @@ async function syncSofasToProducts(){
       madera: false,
       carp: 0, lust: 0, extra: 0
     };
-    await setDoc(doc(db,'moss_products',pid), productData);
+    await window._setDoc(window._doc(window._db,'moss_products',pid), productData);
   }
 
   toast('✓ '+sfSofas.length+' sofás sincronizados al catálogo');
