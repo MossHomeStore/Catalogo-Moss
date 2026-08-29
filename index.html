@@ -1194,6 +1194,86 @@ body.modal-open{overflow:hidden;}
       </div>
     </div>
 
+
+    <!-- MODAL COTIZADOR SOFÁ DESDE CATÁLOGO -->
+    <div class="modal-overlay" id="sofa-quote-modal">
+      <div class="modal" style="max-width:520px;">
+        <button class="modal-close" onclick="closeModal('sofa-quote-modal')">×</button>
+        <div class="modal-title" id="sqm-titulo" style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--walnut);"></div>
+        <input type="hidden" id="sqm-sofa-id">
+
+        <!-- Tela -->
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Tela</label>
+          <select class="form-select" id="sqm-tela" onchange="sqmCalc()"><option value="">Seleccionar tela...</option></select>
+          <div id="sqm-tela-info" style="display:none;font-size:11px;color:var(--driftwood);margin-top:4px;"></div>
+        </div>
+
+        <!-- Tipo de cambio -->
+        <div class="form-group">
+          <label class="form-label">Tipo de cambio</label>
+          <input class="form-input" type="number" id="sqm-tc" placeholder="Ej: 42" oninput="sqmCalc()" style="width:120px;">
+        </div>
+
+        <!-- Largo -->
+        <div class="form-group">
+          <label class="form-label">Largo deseado (cm)</label>
+          <input class="form-input" type="number" id="sqm-largo" placeholder="Ej: 220" min="1" oninput="sqmCalc()">
+          <div style="font-size:11px;color:var(--driftwood);margin-top:3px;" id="sqm-largo-hint"></div>
+        </div>
+
+        <!-- Esquinero -->
+        <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="sqm-esquinero" onchange="sqmToggleEsquinero()" style="width:auto;">
+          <label for="sqm-esquinero" style="font-size:13px;text-transform:none;letter-spacing:0;color:var(--espresso);cursor:pointer;margin:0;">Esquinero / Rinconero</label>
+        </div>
+        <div id="sqm-esquinero-info" style="display:none;">
+          <div style="font-size:11px;color:var(--driftwood);margin-bottom:8px;">Ingresá las dimensiones totales del esquinero</div>
+          <div class="form-row-2">
+            <div class="form-group"><label class="form-label">Lado A (cm)</label><input class="form-input" type="number" id="sqm-esq-a" placeholder="Ej: 300" min="1" oninput="sqmCalc()"></div>
+            <div class="form-group"><label class="form-label">Lado B (cm)</label><input class="form-input" type="number" id="sqm-esq-b" placeholder="Ej: 260" min="1" oninput="sqmCalc()"></div>
+          </div>
+          <div class="sf-info-box" id="sqm-esq-detalle" style="font-size:12px;margin-top:0;"></div>
+        </div>
+
+        <!-- Isla -->
+        <div id="sqm-isla-section" style="display:none;">
+          <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <input type="checkbox" id="sqm-isla" onchange="sqmCalc()" style="width:auto;">
+            <label for="sqm-isla" style="font-size:13px;text-transform:none;letter-spacing:0;color:var(--espresso);cursor:pointer;margin:0;">Agregar isla</label>
+          </div>
+          <div id="sqm-isla-fields" style="display:none;">
+            <div class="form-group" style="margin-top:4px;">
+              <label class="form-label">Medida de la isla (cm × cm)</label>
+              <input class="form-input" type="number" id="sqm-isla-med" placeholder="Ej: 60 (cuadrada: 60×60)" min="1" oninput="sqmCalc()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Resultado -->
+        <div id="sqm-resultado" style="display:none;margin-top:16px;">
+          <div class="sf-result-box">
+            <div class="sf-result-row" id="sqm-r-mod1-row" style="display:none;"><span class="sf-result-label">Módulo 1</span><span class="sf-result-value" id="sqm-r-mod1">-</span></div>
+            <div class="sf-result-row" id="sqm-r-mod2-row" style="display:none;"><span class="sf-result-label">Módulo 2</span><span class="sf-result-value" id="sqm-r-mod2">-</span></div>
+            <div class="sf-result-row" id="sqm-r-sofa-row"><span class="sf-result-label">Precio sofá proporcional</span><span class="sf-result-value" id="sqm-r-sofa">-</span></div>
+            <div class="sf-result-row" id="sqm-r-isla-row" style="display:none;"><span class="sf-result-label">Isla</span><span class="sf-result-value" id="sqm-r-isla">-</span></div>
+            <div class="sf-result-row"><span class="sf-result-label">Metros de tela</span><span class="sf-result-value" id="sqm-r-metros">-</span></div>
+            <div class="sf-result-row"><span class="sf-result-label">Costo tela</span><span class="sf-result-value" id="sqm-r-tela-pesos">-</span></div>
+            <div class="sf-result-row"><span class="sf-result-label">Costo total</span><span class="sf-result-value" id="sqm-r-total">-</span></div>
+            <div class="sf-result-row"><span class="sf-result-label">Factor</span><span class="sf-result-value" id="sqm-r-factor" style="color:var(--driftwood);font-size:12px;">-</span></div>
+            <div class="sf-lista" style="margin-top:12px;text-align:center;">
+              <div class="sf-lista-label">Precio de lista</div>
+              <div class="sf-lista-value" id="sqm-r-lista">-</div>
+            </div>
+          </div>
+          <a id="sqm-wapp-link" href="#" target="_blank" class="wapp-btn" style="display:none;margin-top:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Enviar por WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+
     <!-- SOFAS MODALS -->
     <div class="modal-overlay" id="sf-modal-sofa">
       <div class="modal">
@@ -1220,6 +1300,15 @@ body.modal-open{overflow:hidden;}
           </div>
         </div>
         <div class="form-group"><label class="form-label">Descripción</label><textarea class="form-textarea" id="sf-sofa-desc"></textarea></div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--walnut);margin:16px 0 8px;border-top:1px solid var(--sand);padding-top:14px;">Isla (opcional)</div>
+        <div class="form-row-2">
+          <div class="form-group"><label class="form-label">Largo ref. isla (cm)</label><input class="form-input" type="number" id="sf-sofa-islaLargo" placeholder="Ej: 60"></div>
+          <div class="form-group"><label class="form-label">Precio ref. isla ($)</label><input class="form-input" type="number" id="sf-sofa-islaPrecio" placeholder="Ej: 12000"></div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group"><label class="form-label">Tela ref. isla (m)</label><input class="form-input" type="number" id="sf-sofa-islaTela" placeholder="Ej: 1.5"></div>
+          <div class="form-group"></div>
+        </div>
         <div class="flex-end">
           <button class="btn-secondary" onclick="closeModal('sf-modal-sofa')">Cancelar</button>
           <button class="btn-primary" onclick="sfGuardarSofa()">Guardar</button>
@@ -2637,7 +2726,12 @@ function saveProduct(){
   toast('Producto guardado correctamente');
 }
 function openQuote(id){
-  quoteProduct=products.find(x=>x.id===id);
+  const _pCheck=products.find(x=>x.id===id);
+  if(_pCheck && (_pCheck.cat||'').toLowerCase()==='sofa' && _pCheck.sofaModelId){
+    openSofaQuote(_pCheck.sofaModelId);
+    return;
+  }
+  quoteProduct=_pCheck;
   const p=quoteProduct;
   // Header
   document.getElementById('qm-title').textContent=p.name;
@@ -3438,7 +3532,10 @@ async function sfGuardarSofa(){
   if(isNaN(ar)||ar<=0){toast('Ingresá el ancho de tela de referencia');return;}
   const fv=parseFloat(document.getElementById('sf-sofa-factor').value);
   const id=document.getElementById('sf-sofa-edit-id').value;
-  const obj={id:id||sfUid(),nombre:n,proveedor:document.getElementById('sf-sofa-prov').value,largoRef:lr,precioRef:pr,telaRef:tr,anchoRef:ar,factor:isNaN(fv)?null:fv,desc:document.getElementById('sf-sofa-desc').value.trim()};
+  const islaL=parseFloat(document.getElementById('sf-sofa-islaLargo').value)||0;
+  const islaP=parseFloat(document.getElementById('sf-sofa-islaPrecio').value)||0;
+  const islaT=parseFloat(document.getElementById('sf-sofa-islaTela').value)||0;
+  const obj={id:id||sfUid(),nombre:n,proveedor:document.getElementById('sf-sofa-prov').value,largoRef:lr,precioRef:pr,telaRef:tr,anchoRef:ar,factor:isNaN(fv)?null:fv,desc:document.getElementById('sf-sofa-desc').value.trim(),islaLargoRef:islaL,islaPrecioRef:islaP,islaTelaRef:islaT};
   if(id){const i=sfSofas.findIndex(x=>x.id===id);sfSofas[i]=obj;}else sfSofas.push(obj);
   await sfSaveCol(SF_COLS.sofas,[obj]);
   closeModal('sf-modal-sofa');sfRenderAll();toast('Modelo guardado');
@@ -4498,6 +4595,205 @@ function importJSON(inp) {
   r.onerror = () => toast('No se pudo leer el archivo');
   r.readAsText(file);
   inp.value = '';
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// COTIZADOR DE SOFÁS DESDE CATÁLOGO (sqm = sofa quote modal)
+// ═══════════════════════════════════════════════════════════
+function openSofaQuote(sofaId){
+  // Find sofa model by id in sfSofas (loaded from Firestore)
+  const sofa = sfSofas.find(x=>x.id===sofaId);
+  if(!sofa){toast('No se encontró el modelo de sofá');return;}
+
+  // Reset form
+  document.getElementById('sqm-sofa-id').value=sofaId;
+  document.getElementById('sqm-titulo').textContent=sofa.nombre;
+  document.getElementById('sqm-largo').value='';
+  document.getElementById('sqm-largo-hint').textContent='Largo de referencia: '+sofa.largoRef+' cm';
+  document.getElementById('sqm-esquinero').checked=false;
+  document.getElementById('sqm-esquinero-info').style.display='none';
+  document.getElementById('sqm-esq-a').value='';
+  document.getElementById('sqm-esq-b').value='';
+  document.getElementById('sqm-esq-detalle').innerHTML='';
+  document.getElementById('sqm-resultado').style.display='none';
+  document.getElementById('sqm-wapp-link').style.display='none';
+
+  // Isla: only show if model has isla reference data
+  const tieneIsla = sofa.islaLargoRef && sofa.islaPrecioRef && sofa.islaTelaRef;
+  document.getElementById('sqm-isla-section').style.display=tieneIsla?'block':'none';
+  document.getElementById('sqm-isla').checked=false;
+  document.getElementById('sqm-isla-fields').style.display='none';
+  document.getElementById('sqm-isla-med').value='';
+
+  // Populate tela select
+  const telaEl=document.getElementById('sqm-tela');
+  telaEl.innerHTML='<option value="">Seleccionar tela...</option>'+
+    sfTelas.map(t=>{
+      const prov=sfProvTelas.find(x=>x.id===t.proveedor);
+      return '<option value="'+t.id+'">'+t.nombre+(prov?' — '+prov.nombre:'')+'</option>';
+    }).join('');
+
+  // TC from global config
+  document.getElementById('sqm-tc').value=cfg.tc||'';
+
+  // Open modal
+  window._scrollY=window.scrollY;
+  document.body.style.top='-'+window._scrollY+'px';
+  document.body.classList.add('modal-open');
+  document.getElementById('sofa-quote-modal').classList.add('open');
+}
+
+function sqmToggleEsquinero(){
+  const esq=document.getElementById('sqm-esquinero').checked;
+  document.getElementById('sqm-esquinero-info').style.display=esq?'block':'none';
+  sqmCalc();
+}
+
+function sqmCalc(){
+  const sofaId=document.getElementById('sqm-sofa-id').value;
+  const sofa=sfSofas.find(x=>x.id===sofaId);
+  const tId=document.getElementById('sqm-tela').value;
+  const tela=sfTelas.find(x=>x.id===tId);
+  const tc=parseFloat(document.getElementById('sqm-tc').value)||cfg.tc||1;
+  const sfFactor=(sofa&&sofa.factor&&sofa.factor>0)?sofa.factor:(cfg.factor||2);
+  const esEsq=document.getElementById('sqm-esquinero').checked;
+  const conIsla=document.getElementById('sqm-isla').checked;
+  const islaMed=parseFloat(document.getElementById('sqm-isla-med').value)||0;
+
+  // Show/hide isla fields
+  document.getElementById('sqm-isla-fields').style.display=conIsla?'block':'none';
+
+  if(!sofa||!tela){document.getElementById('sqm-resultado').style.display='none';return;}
+
+  let precioSofa,metrosTela,costoTelaUsd,costoTelaPesos,costoTotal,precioLista,largoLabel;
+  const anchoTela=parseFloat(tela.ancho)||1;
+
+  if(esEsq){
+    const ladoA=parseFloat(document.getElementById('sqm-esq-a').value)||0;
+    const ladoB=parseFloat(document.getElementById('sqm-esq-b').value)||0;
+    if(!ladoA||!ladoB){document.getElementById('sqm-resultado').style.display='none';return;}
+    const profFija=90;
+    const m1largo=ladoA, m2largo=ladoB-profFija;
+    if(m2largo<=0){
+      document.getElementById('sqm-esq-detalle').innerHTML='<span style="color:#c07040;">⚠ Lado B debe ser mayor a '+profFija+' cm</span>';
+      document.getElementById('sqm-resultado').style.display='none';return;
+    }
+    const mod1=sfCalcModulo(sofa,tela,m1largo,tc);
+    const mod2=sfCalcModulo(sofa,tela,m2largo,tc);
+    precioSofa=mod1.precioSofa+mod2.precioSofa;
+    metrosTela=mod1.metrosTela+mod2.metrosTela;
+    costoTelaUsd=mod1.costoTelaUsd+mod2.costoTelaUsd;
+    costoTelaPesos=mod1.costoTelaPesos+mod2.costoTelaPesos;
+    largoLabel=ladoA+' × '+ladoB+' cm (esquinero)';
+    document.getElementById('sqm-esq-detalle').innerHTML=
+      '<strong>Módulo 1:</strong> '+m1largo+' cm — '+mod1.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod1.precioSofa)+'<br>'+
+      '<strong>Módulo 2:</strong> '+m2largo+' cm ('+ladoB+' − '+profFija+') — '+mod2.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod2.precioSofa);
+    ['sqm-r-mod1-row','sqm-r-mod2-row'].forEach(id=>document.getElementById(id).style.display='flex');
+    document.getElementById('sqm-r-mod1').textContent=m1largo+' cm — '+mod1.metrosTela.toFixed(2)+'m — $'+sfFmt(mod1.precioSofa);
+    document.getElementById('sqm-r-mod2').textContent=m2largo+' cm — '+mod2.metrosTela.toFixed(2)+'m — $'+sfFmt(mod2.precioSofa);
+    document.getElementById('sqm-r-sofa-row').style.display='none';
+  } else {
+    const largo=parseFloat(document.getElementById('sqm-largo').value)||0;
+    if(!largo){document.getElementById('sqm-resultado').style.display='none';return;}
+    const mod=sfCalcModulo(sofa,tela,largo,tc);
+    precioSofa=mod.precioSofa; metrosTela=mod.metrosTela;
+    costoTelaUsd=mod.costoTelaUsd; costoTelaPesos=mod.costoTelaPesos;
+    largoLabel=largo+' cm';
+    ['sqm-r-mod1-row','sqm-r-mod2-row'].forEach(id=>document.getElementById(id).style.display='none');
+    document.getElementById('sqm-r-sofa-row').style.display='flex';
+    document.getElementById('sqm-r-sofa').textContent='$'+sfFmt(precioSofa);
+  }
+
+  // Isla calculation
+  let precioIsla=0, metrosIslaExtra=0;
+  if(conIsla && islaMed>0 && sofa.islaLargoRef && sofa.islaPrecioRef && sofa.islaTelaRef){
+    // Price: proportional to medida^2 vs islaLargoRef^2 (area)
+    precioIsla=(islaMed*islaMed*sofa.islaPrecioRef)/(sofa.islaLargoRef*sofa.islaLargoRef);
+    // Tela: proportional to medida vs islaLargoRef
+    const metrosIslaRef=parseFloat(sofa.islaTelaRef)||0;
+    metrosIslaExtra=(islaMed*metrosIslaRef)/sofa.islaLargoRef;
+    const costoIslaTelaUsd=metrosIslaExtra*tela.precio;
+    const costoIslaTelaPesos=costoIslaTelaUsd*tc;
+    precioIsla+=costoIslaTelaPesos;
+    metrosTela+=metrosIslaExtra;
+    document.getElementById('sqm-r-isla-row').style.display='flex';
+    document.getElementById('sqm-r-isla').textContent=islaMed+'×'+islaMed+' cm — '+metrosIslaExtra.toFixed(2)+'m tela — $'+sfFmt(precioIsla);
+  } else {
+    document.getElementById('sqm-r-isla-row').style.display='none';
+  }
+
+  costoTotal=precioSofa+costoTelaPesos+precioIsla;
+  precioLista=sfRedondear(costoTotal*sfFactor);
+
+  document.getElementById('sqm-r-metros').textContent=metrosTela.toFixed(2)+' m'+(metrosIslaExtra?' (incl. isla)':'');
+  document.getElementById('sqm-r-tela-pesos').textContent='$'+sfFmt(costoTelaPesos)+' (TC: '+tc+')';
+  document.getElementById('sqm-r-total').textContent='$'+sfFmt(costoTotal);
+  document.getElementById('sqm-r-factor').textContent='×'+sfFactor+(sofa.factor?'':' (global)');
+  document.getElementById('sqm-r-lista').textContent='$'+Math.round(precioLista).toLocaleString('es-UY');
+  document.getElementById('sqm-resultado').style.display='block';
+
+  // WhatsApp
+  const esEsqCheck=document.getElementById('sqm-esquinero').checked;
+  const ladoAv=parseFloat(document.getElementById('sqm-esq-a').value)||0;
+  const ladoBv=parseFloat(document.getElementById('sqm-esq-b').value)||0;
+  const largoV=parseFloat(document.getElementById('sqm-largo').value)||0;
+  const lineas=[
+    'Cotizacion Moss Home Store - Sofas',
+    '─────────────────────',
+    'Modelo: '+sofa.nombre+(esEsqCheck?' (Esquinero)':''),
+    esEsqCheck?'Dimensiones: '+ladoAv+' × '+ladoBv+' cm':'Largo: '+largoV+' cm',
+    esEsqCheck?'Módulo 1: '+ladoAv+' cm / Módulo 2: '+(ladoBv-90)+' cm':'',
+    'Tela: '+tela.nombre+' ('+anchoTela+'m)',
+    'Metros totales: '+metrosTela.toFixed(2)+' m',
+    conIsla&&islaMed?'Isla: '+islaMed+'×'+islaMed+' cm':'',
+    'Precio de lista: $'+Math.round(precioLista).toLocaleString('es-UY'),
+    '─────────────────────',
+    'Aceptamos tarjetas de credito',
+    '10% dto pagando en efectivo o transferencia',
+    '─────────────────────',
+    'Avda. Rivera 2157, Montevideo - @moss.uy',
+    'Precio estimado. Sujeto a confirmacion.'
+  ].filter(l=>l!=='').join('\n');
+  const wl=document.getElementById('sqm-wapp-link');
+  wl.href='https://wa.me/?text='+encodeURIComponent(lineas);
+  wl.style.display='flex';
+}
+
+
+async function syncSofasToProducts(){
+  if(!confirm('Esto va a borrar los sofás actuales del catálogo y reemplazarlos con los modelos del cotizador. ¿Continuar?'))return;
+  toast('Sincronizando sofás...');
+
+  // 1. Borrar productos existentes con cat='Sofa'
+  const existingSnap = await getDocs(collection(db,'moss_products'));
+  const toDelete = [];
+  existingSnap.forEach(d=>{ if((d.data().cat||'').toLowerCase()==='sofa') toDelete.push(d.id); });
+  for(const did of toDelete){
+    await deleteDoc(doc(db,'moss_products',did));
+  }
+
+  // 2. Crear un producto por cada modelo en sfSofas
+  for(const sofa of sfSofas){
+    const pid = 'sofa_'+sofa.id;
+    const productData = {
+      id: pid,
+      name: sofa.nombre,
+      cat: 'Sofa',
+      sku: 'SF-'+sofa.nombre.toUpperCase().replace(/\s+/g,'-').substring(0,12),
+      desc: sofa.desc||'',
+      sofaModelId: sofa.id,
+      images: [],
+      measures: [],
+      upholstery: true,
+      madera: false,
+      carp: 0, lust: 0, extra: 0
+    };
+    await setDoc(doc(db,'moss_products',pid), productData);
+  }
+
+  toast('✓ '+sfSofas.length+' sofás sincronizados al catálogo');
+  await loadProducts();
 }
 
 </script>
