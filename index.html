@@ -2102,6 +2102,17 @@ async function loadFromFirebase(){
       console.warn('[Firebase] Loaded 0 products from Firebase');
     }
 
+    // Load sf_sofas and sf_telas eagerly so openSofaQuote works from the catalog
+    const sofasSnap2 = await window._getDocs(window._collection(window._db,'sf_sofas'));
+    sfSofas=[];sofasSnap2.forEach(d=>sfSofas.push({id:d.id,...d.data()}));
+    sfSofas.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));
+    const telasSnap2 = await window._getDocs(window._collection(window._db,'sf_telas'));
+    sfTelas=[];telasSnap2.forEach(d=>sfTelas.push({id:d.id,...d.data()}));
+    sfTelas.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));
+    const provTelasSnap = await window._getDocs(window._collection(window._db,'sf_prov_telas'));
+    sfProvTelas=[];provTelasSnap.forEach(d=>sfProvTelas.push({id:d.id,...d.data()}));
+    window._sfLoaded = true;
+
     // localStorage not used — Firebase is single source of truth
 
     showSyncStatus('saved');
