@@ -1423,8 +1423,12 @@ body.modal-open{overflow:hidden;}
         <div class="setting-card">
           <div class="setting-card-title">Sofás en el catálogo</div>
           <p style="font-size:13px;color:var(--driftwood);margin-bottom:14px;line-height:1.6;">
-            Sincroniza los modelos del cotizador de sofás con el catálogo de productos. Borra los sofás existentes y crea uno por cada modelo dado de alta en el cotizador.
+            Sincroniza los modelos del cotizador de sofás con el catálogo de productos. Borra los sofás existentes en la categoría seleccionada y crea uno por cada modelo.
           </p>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label">Categoría de sofás</label>
+            <select class="form-select" id="sofa-sync-cat" style="max-width:220px;"></select>
+          </div>
           <button class="btn-primary" onclick="syncSofasToProducts()" style="background:var(--walnut);">
             🛋️ Sincronizar sofás al catálogo
           </button>
@@ -2737,7 +2741,7 @@ function saveProduct(){
 }
 function openQuote(id){
   const _pCheck=products.find(x=>x.id===id);
-  if(_pCheck && (_pCheck.cat||'').toLowerCase()==='sofa' && _pCheck.sofaModelId){
+  if(_pCheck && _pCheck.sofaModelId){
     openSofaQuote(_pCheck.sofaModelId);
     return;
   }
@@ -2961,7 +2965,9 @@ function renderSettings(){document.getElementById('cfg-factor').value=cfg.factor
   if(ael) ael.innerHTML=ADMIN_EMAILS.map(e=>`<div style="padding:7px 12px;background:var(--linen);border-radius:6px;font-size:13px;font-family:monospace;margin-bottom:5px;">${e}</div>`).join('');
   const ds=cfg.defaultSort||'name-asc';
   const cfgSort=document.getElementById('cfg-sort');if(cfgSort)cfgSort.value=ds;
-  const ss=document.getElementById('sort-select');if(ss)ss.value=ds;document.getElementById('cats-manage').innerHTML=categories.map((c,i)=>`<div class="cat-manage-item"><span class="cat-manage-name">${c}</span><button class="btn-del-cat" onclick="removeCat(${i})">×</button></div>`).join('');}
+  const ss=document.getElementById('sort-select');if(ss)ss.value=ds;
+  const sofaCatSel=document.getElementById('sofa-sync-cat');
+  if(sofaCatSel){const prev=sofaCatSel.value;sofaCatSel.innerHTML=categories.map(c=>`<option value="${c}">${c}</option>`).join('');if(prev&&categories.includes(prev))sofaCatSel.value=prev;}document.getElementById('cats-manage').innerHTML=categories.map((c,i)=>`<div class="cat-manage-item"><input class="cat-manage-input" value="${c.replace(/"/g,'&quot;')}" onblur="renameCat(${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur();}"><button class="btn-del-cat" onclick="removeCat(${i})">×</button></div>`).join('');}
 
 // ========== IMAGE MIGRATION TO FIREBASE STORAGE ==========
 async function migrateImagesToStorage(){
@@ -3058,6 +3064,20 @@ function saveSortCfg(){
 }
 function addCategory(){const v=document.getElementById('new-cat-input').value.trim();if(!v||categories.includes(v)){toast('Categoría ya existe o nombre vacío');return;}categories.push(v);document.getElementById('new-cat-input').value='';save();renderCats();renderSettings();toast('Categoría agregada');}
 function removeCat(i){if(products.some(p=>p.cat===categories[i])){toast('No se puede eliminar: hay productos en esta categoría');return;}if(!confirm(`¿Eliminar la categoría "${categories[i]}"?`))return;categories.splice(i,1);save();renderCats();renderSettings();toast('Categoría eliminada');}
+function renameCat(i,newName){
+  newName=newName.trim();
+  if(!newName||newName===categories[i])return;
+  if(categories.includes(newName)){toast('Ya existe una categoría con ese nombre');return;}
+  const oldName=categories[i];
+  categories[i]=newName;
+  products.forEach(async p=>{
+    if(p.cat===oldName){
+      p.cat=newName;
+      await window._setDoc(window._doc(window._db,'moss_products',p.id),p);
+    }
+  });
+  save();renderCats();renderSettings();toast('Categoría renombrada a "'+newName+'"');
+}
 
 function toggleSidebar(){
   document.getElementById('sidebar').classList.toggle('open');
@@ -4772,13 +4792,16 @@ function sqmCalc(){
 
 
 async function syncSofasToProducts(){
-  if(!confirm('Esto va a borrar los sofás actuales del catálogo y reemplazarlos con los modelos del cotizador. ¿Continuar?'))return;
+  const catSel=document.getElementById('sofa-sync-cat');
+  const sofaCat=catSel?catSel.value:'';
+  if(!sofaCat){toast('Seleccioná una categoría primero');return;}
+  if(!confirm('Esto va a borrar los sofás actuales en "'+sofaCat+'" y reemplazarlos con los modelos del cotizador. ¿Continuar?'))return;
   toast('Sincronizando sofás...');
 
-  // 1. Borrar productos existentes con cat='Sofa'
+  // 1. Borrar productos existentes con esa categoría
   const existingSnap = await getDocs(collection(db,'moss_products'));
   const toDelete = [];
-  existingSnap.forEach(d=>{ if((d.data().cat||'').toLowerCase()==='sofa') toDelete.push(d.id); });
+  existingSnap.forEach(d=>{ if(d.data().cat===sofaCat) toDelete.push(d.id); });
   for(const did of toDelete){
     await deleteDoc(doc(db,'moss_products',did));
   }
@@ -4789,7 +4812,7 @@ async function syncSofasToProducts(){
     const productData = {
       id: pid,
       name: sofa.nombre,
-      cat: 'Sofa',
+      cat: sofaCat,
       sku: 'SF-'+sofa.nombre.toUpperCase().replace(/\s+/g,'-').substring(0,12),
       desc: sofa.desc||'',
       sofaModelId: sofa.id,
