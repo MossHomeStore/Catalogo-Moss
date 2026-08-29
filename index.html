@@ -1253,14 +1253,14 @@ body.modal-open{overflow:hidden;}
         <!-- Resultado -->
         <div id="sqm-resultado" style="display:none;margin-top:16px;">
           <div class="sf-result-box">
-            <div class="sf-result-row" id="sqm-r-mod1-row" style="display:none;"><span class="sf-result-label">Módulo 1</span><span class="sf-result-value" id="sqm-r-mod1">-</span></div>
-            <div class="sf-result-row" id="sqm-r-mod2-row" style="display:none;"><span class="sf-result-label">Módulo 2</span><span class="sf-result-value" id="sqm-r-mod2">-</span></div>
-            <div class="sf-result-row" id="sqm-r-sofa-row"><span class="sf-result-label">Precio sofá proporcional</span><span class="sf-result-value" id="sqm-r-sofa">-</span></div>
-            <div class="sf-result-row" id="sqm-r-isla-row" style="display:none;"><span class="sf-result-label">Isla</span><span class="sf-result-value" id="sqm-r-isla">-</span></div>
-            <div class="sf-result-row"><span class="sf-result-label">Metros de tela</span><span class="sf-result-value" id="sqm-r-metros">-</span></div>
-            <div class="sf-result-row"><span class="sf-result-label">Costo tela</span><span class="sf-result-value" id="sqm-r-tela-pesos">-</span></div>
-            <div class="sf-result-row"><span class="sf-result-label">Costo total</span><span class="sf-result-value" id="sqm-r-total">-</span></div>
-            <div class="sf-result-row"><span class="sf-result-label">Factor</span><span class="sf-result-value" id="sqm-r-factor" style="color:var(--driftwood);font-size:12px;">-</span></div>
+            <div class="sf-result-row sqm-admin-row" id="sqm-r-mod1-row" style="display:none;"><span class="sf-result-label">Módulo 1</span><span class="sf-result-value" id="sqm-r-mod1">-</span></div>
+            <div class="sf-result-row sqm-admin-row" id="sqm-r-mod2-row" style="display:none;"><span class="sf-result-label">Módulo 2</span><span class="sf-result-value" id="sqm-r-mod2">-</span></div>
+            <div class="sf-result-row sqm-admin-row" id="sqm-r-sofa-row"><span class="sf-result-label">Precio sofá proporcional</span><span class="sf-result-value" id="sqm-r-sofa">-</span></div>
+            <div class="sf-result-row sqm-admin-row" id="sqm-r-isla-row" style="display:none;"><span class="sf-result-label">Isla</span><span class="sf-result-value" id="sqm-r-isla">-</span></div>
+            <div class="sf-result-row sqm-admin-row"><span class="sf-result-label">Metros de tela</span><span class="sf-result-value" id="sqm-r-metros">-</span></div>
+            <div class="sf-result-row sqm-admin-row"><span class="sf-result-label">Costo tela</span><span class="sf-result-value" id="sqm-r-tela-pesos">-</span></div>
+            <div class="sf-result-row sqm-admin-row"><span class="sf-result-label">Costo total</span><span class="sf-result-value" id="sqm-r-total">-</span></div>
+            <div class="sf-result-row sqm-admin-row"><span class="sf-result-label">Factor</span><span class="sf-result-value" id="sqm-r-factor" style="color:var(--driftwood);font-size:12px;">-</span></div>
             <div class="sf-lista" style="margin-top:12px;text-align:center;">
               <div class="sf-lista-label">Precio de lista</div>
               <div class="sf-lista-value" id="sqm-r-lista">-</div>
@@ -4678,6 +4678,14 @@ function openSofaQuote(sofaId){
   // TC from global config
   document.getElementById('sqm-tc').value=cfg.tc||'';
 
+  // Show/hide cost rows based on admin status
+  const adminRows = document.querySelectorAll('.sqm-admin-row');
+  adminRows.forEach(r=>{
+    // preserve display:none for rows that are hidden by logic (mod1, mod2, isla)
+    if(r.id==='sqm-r-mod1-row'||r.id==='sqm-r-mod2-row'||r.id==='sqm-r-isla-row') return;
+    r.style.display = isAdmin ? 'flex' : 'none';
+  });
+
   // Open modal
   window._scrollY=window.scrollY;
   document.body.style.top='-'+window._scrollY+'px';
@@ -4730,7 +4738,7 @@ function sqmCalc(){
     document.getElementById('sqm-esq-detalle').innerHTML=
       '<strong>Módulo 1:</strong> '+m1largo+' cm — '+mod1.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod1.precioSofa)+'<br>'+
       '<strong>Módulo 2:</strong> '+m2largo+' cm ('+ladoB+' − '+profFija+') — '+mod2.metrosTela.toFixed(2)+'m tela — $'+sfFmt(mod2.precioSofa);
-    ['sqm-r-mod1-row','sqm-r-mod2-row'].forEach(id=>document.getElementById(id).style.display='flex');
+    ['sqm-r-mod1-row','sqm-r-mod2-row'].forEach(id=>document.getElementById(id).style.display=isAdmin?'flex':'none');
     document.getElementById('sqm-r-mod1').textContent=m1largo+' cm — '+mod1.metrosTela.toFixed(2)+'m — $'+sfFmt(mod1.precioSofa);
     document.getElementById('sqm-r-mod2').textContent=m2largo+' cm — '+mod2.metrosTela.toFixed(2)+'m — $'+sfFmt(mod2.precioSofa);
     document.getElementById('sqm-r-sofa-row').style.display='none';
@@ -4742,7 +4750,7 @@ function sqmCalc(){
     costoTelaUsd=mod.costoTelaUsd; costoTelaPesos=mod.costoTelaPesos;
     largoLabel=largo+' cm';
     ['sqm-r-mod1-row','sqm-r-mod2-row'].forEach(id=>document.getElementById(id).style.display='none');
-    document.getElementById('sqm-r-sofa-row').style.display='flex';
+    document.getElementById('sqm-r-sofa-row').style.display=isAdmin?'flex':'none';
     document.getElementById('sqm-r-sofa').textContent='$'+sfFmt(precioSofa);
   }
 
@@ -4758,7 +4766,7 @@ function sqmCalc(){
     const costoIslaTelaPesos=costoIslaTelaUsd*tc;
     precioIsla+=costoIslaTelaPesos;
     metrosTela+=metrosIslaExtra;
-    document.getElementById('sqm-r-isla-row').style.display='flex';
+    document.getElementById('sqm-r-isla-row').style.display=isAdmin?'flex':'none';
     document.getElementById('sqm-r-isla').textContent=islaMed+'×'+islaMed+' cm — '+metrosIslaExtra.toFixed(2)+'m tela — $'+sfFmt(precioIsla);
   } else {
     document.getElementById('sqm-r-isla-row').style.display='none';
