@@ -4796,21 +4796,28 @@ async function syncSofasToProducts(){
   const sofaCat=catSel?catSel.value:'';
   if(!sofaCat){toast('Seleccioná una categoría primero');return;}
   if(!confirm('Esto va a borrar los productos actuales en "'+sofaCat+'" y reemplazarlos con los modelos del cotizador. ¿Continuar?'))return;
-  toast('Sincronizando sofás...');
+  toast('Cargando modelos de sofás...');
 
-  // 1. Borrar SOLO productos en moss_products con la categoría seleccionada
+  // 1. Leer sf_sofas directamente de Firestore (no depender de la variable en memoria)
+  const sofasSnap = await window._getDocs(window._collection(window._db,'sf_sofas'));
+  const sofasData = [];
+  sofasSnap.forEach(d=>sofasData.push({id:d.id,...d.data()}));
+  if(sofasData.length===0){toast('No hay modelos de sofás en el cotizador');return;}
+
+  toast('Sincronizando '+sofasData.length+' sofás...');
+
+  // 2. Borrar SOLO productos en moss_products con la categoría seleccionada
   const existingSnap = await window._getDocs(window._collection(window._db,'moss_products'));
   const toDelete = [];
   existingSnap.forEach(d=>{
-    const data=d.data();
-    if(data.cat===sofaCat) toDelete.push(d.id);
+    if(d.data().cat===sofaCat) toDelete.push(d.id);
   });
   for(const did of toDelete){
     await window._deleteDoc(window._doc(window._db,'moss_products',did));
   }
 
-  // 2. Crear un producto en moss_products por cada modelo en sfSofas
-  for(const sofa of sfSofas){
+  // 3. Crear un producto en moss_products por cada modelo en sf_sofas
+  for(const sofa of sofasData){
     const pid = 'sofa_'+sofa.id;
     const productData = {
       id: pid,
@@ -4828,7 +4835,7 @@ async function syncSofasToProducts(){
     await window._setDoc(window._doc(window._db,'moss_products',pid), productData);
   }
 
-  toast('✓ '+sfSofas.length+' sofás sincronizados al catálogo');
+  toast('✓ '+sofasData.length+' sofás sincronizados al catálogo');
   await loadFromFirebase();
 }
 
