@@ -2752,7 +2752,7 @@ function saveProduct(){
   toast('Producto guardado correctamente');
 }
 function openQuote(id){
-  const _pCheck=products.find(x=>x.id===id);
+  const _pCheck=products.find(x=>String(x.id)===String(id));
   if(_pCheck && _pCheck.sofaModelId){
     openSofaQuote(_pCheck.sofaModelId);
     return;
