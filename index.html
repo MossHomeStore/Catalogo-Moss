@@ -2513,7 +2513,7 @@ function renderAdmin(){
       '<td data-label="Variantes" style="max-width:260px;">'+varSummary+'</td>'+
       '<td data-label="Precio" style="color:var(--walnut);font-weight:500;white-space:nowrap;">'+(basePrice?fmt(basePrice):'—')+'</td>'+
       '<td style="white-space:nowrap;">'+
-        '<button class="btn-sm btn-sm-edit" onclick="openProductModal('+p.id+')">Editar</button>'+
+        '<button class="btn-sm btn-sm-edit" onclick="openProductModal(\''+p.id+'\')">Editar</button>'+
         '<button class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="openLabelModal('+p.id+')">🏷️</button>'+
         '<button class="btn-sm btn-sm-del" onclick="deleteProduct('+p.id+')">Eliminar</button>'+
       '</td>'+
