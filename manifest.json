@@ -1,0 +1,22 @@
+{
+  "name": "Moss Home Store",
+  "short_name": "Moss",
+  "description": "Catálogo y cotizador Moss Home Store",
+  "start_url": "/Catalogo-Moss/",
+  "display": "standalone",
+  "background_color": "#f8f7f4",
+  "theme_color": "#745e4d",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
