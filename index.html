@@ -1472,7 +1472,10 @@ body.modal-open{overflow:hidden;}
           <p style="font-size:13px;color:var(--driftwood);margin-bottom:14px;line-height:1.6;">
             Lista todos los productos de madera que no tienen precio ni costos cargados.
           </p>
-          <button class="btn-secondary" onclick="reportSinPrecio()">📋 Ver productos sin precio</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn-secondary" onclick="reportSinPrecio()">📋 Ver productos sin precio</button>
+            <button class="btn-secondary" onclick="exportarSinPrecio()">⬇️ Exportar lista completa</button>
+          </div>
           <div id="sin-precio-list" style="margin-top:14px;"></div>
         </div>
 
@@ -5062,6 +5065,50 @@ function reportSinPrecio(){
       ).join('')+
       '</div>'
     ).join('');
+}
+
+
+function exportarSinPrecio(){
+  // Todos los productos de madera con su estado de precio
+  const rows = products
+    .filter(p => !p.sofaModelId)
+    .map(p => {
+      const hasProdCost = (p.carp||0)+(p.lust||0)+(p.extra||0) > 0;
+      const hasMeasurePrice = p.measures && p.measures.some(m=>
+        (m.price&&m.price>0) || ((m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0)) > 0
+      );
+      const tienePrecio = hasProdCost || hasMeasurePrice;
+      const precio = calcPrice(p, p.measures&&p.measures[0]);
+      return {
+        SKU: p.sku||'',
+        Nombre: p.name||'',
+        Categoria: p.cat||'',
+        Medidas: p.measures ? p.measures.length : 0,
+        PrecioBase: precio || '',
+        Estado: tienePrecio ? 'Con precio' : 'Sin precio'
+      };
+    })
+    .sort((a,b)=> a.Estado===b.Estado ? a.Categoria.localeCompare(b.Categoria,'es') : a.Estado==='Sin precio'?-1:1);
+
+  // Generar CSV
+  const cols = ['SKU','Nombre','Categoria','Medidas','PrecioBase','Estado'];
+  const csv = [
+    cols.join(','),
+    ...rows.map(r => cols.map(c => {
+      const val = String(r[c]||'').replace(/"/g,'""');
+      return val.includes(',')||val.includes('"') ? '"'+val+'"' : val;
+    }).join(','))
+  ].join('\n');
+
+  // Descargar
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'moss-productos-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✓ Lista exportada');
 }
 
 </script>
