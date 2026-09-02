@@ -4745,7 +4745,7 @@ function openSofaQuote(sofaId){
     }).join('');
 
   // TC from global config
-  document.getElementById('sqm-tc').value=cfg.tc||'';
+  document.getElementById('sqm-tc').value=sfTc();
 
   // Show/hide cost rows based on admin status
   const adminRows = document.querySelectorAll('.sqm-admin-row');
@@ -4773,7 +4773,7 @@ function sqmCalc(){
   const sofa=sfSofas.find(x=>x.id===sofaId);
   const tId=document.getElementById('sqm-tela').value;
   const tela=sfTelas.find(x=>x.id===tId);
-  const tc=parseFloat(document.getElementById('sqm-tc').value)||cfg.tc||1;
+  const tc=parseFloat(document.getElementById('sqm-tc').value)||sfTc();
   const sfFactor=(sofa&&sofa.factor&&sofa.factor>0)?sofa.factor:(cfg.factor||2);
   const esEsq=document.getElementById('sqm-esquinero').checked;
   const conIsla=document.getElementById('sqm-isla').checked;
