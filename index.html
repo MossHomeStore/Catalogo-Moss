@@ -1468,6 +1468,15 @@ body.modal-open{overflow:hidden;}
         </div>
 
         <div class="setting-card">
+          <div class="setting-card-title">Productos sin precio</div>
+          <p style="font-size:13px;color:var(--driftwood);margin-bottom:14px;line-height:1.6;">
+            Lista todos los productos de madera que no tienen precio ni costos cargados.
+          </p>
+          <button class="btn-secondary" onclick="reportSinPrecio()">📋 Ver productos sin precio</button>
+          <div id="sin-precio-list" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="setting-card">
           <div class="setting-card-title">Sofás en el catálogo</div>
           <p style="font-size:13px;color:var(--driftwood);margin-bottom:14px;line-height:1.6;">
             Sincroniza los modelos del cotizador de sofás con el catálogo de productos. Borra los sofás existentes en la categoría seleccionada y crea uno por cada modelo.
@@ -5013,6 +5022,46 @@ async function spmGuardar(){
   closeModal('sofa-product-modal');
   renderCatalog();
   toast('✓ Sofá actualizado');
+}
+
+
+function reportSinPrecio(){
+  const sinPrecio = products.filter(p=>{
+    // Ignorar sofás (tienen su propio cotizador)
+    if(p.sofaModelId) return false;
+    // Verificar si tiene algún precio calculable
+    const hasProdCost = (p.carp||0)+(p.lust||0)+(p.extra||0) > 0;
+    const hasMeasurePrice = p.measures && p.measures.some(m=>
+      (m.price&&m.price>0) || ((m.carp||0)+(m.lust||0)+(m.extra||0)+(m.tapic||0)) > 0
+    );
+    return !hasProdCost && !hasMeasurePrice;
+  });
+
+  const el = document.getElementById('sin-precio-list');
+  if(!sinPrecio.length){
+    el.innerHTML='<div style="color:var(--driftwood);font-size:13px;">✓ Todos los productos tienen precio cargado.</div>';
+    return;
+  }
+
+  // Agrupar por categoría
+  const byCat = {};
+  sinPrecio.forEach(p=>{
+    if(!byCat[p.cat]) byCat[p.cat]=[];
+    byCat[p.cat].push(p);
+  });
+
+  el.innerHTML = '<div style="font-size:13px;color:var(--espresso);margin-bottom:8px;"><strong>'+sinPrecio.length+' productos sin precio:</strong></div>' +
+    Object.entries(byCat).map(([cat,items])=>
+      '<div style="margin-bottom:12px;">'+
+      '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--driftwood);margin-bottom:4px;">'+cat+'</div>'+
+      items.map(p=>
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--linen);border-radius:6px;margin-bottom:4px;gap:8px;">'+
+        '<span style="font-size:13px;color:var(--espresso);">'+p.name+'</span>'+
+        '<button class="btn-sm btn-sm-edit" onclick="openProductModal('+JSON.stringify(p.id)+')" style="flex-shrink:0;">Editar</button>'+
+        '</div>'
+      ).join('')+
+      '</div>'
+    ).join('');
 }
 
 </script>
