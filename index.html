@@ -5053,6 +5053,14 @@ async function spmGuardar(){
   await window._setDoc(window._doc(window._db,'moss_products',String(_spmId)), p);
   closeModal('sofa-product-modal');
   renderCatalog();
+  // Forzar carga inmediata de imágenes visibles (lazy load no dispara si ya están en viewport)
+  setTimeout(()=>{
+    document.querySelectorAll('img.lazy[data-src]').forEach(img=>{
+      img.src=img.getAttribute('data-src');
+      img.removeAttribute('data-src');
+      img.classList.add('loaded');
+    });
+  }, 100);
   toast('✓ Sofá actualizado');
 }
 
