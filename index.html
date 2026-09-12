@@ -414,14 +414,40 @@ body.modal-open{overflow:hidden;}
   .search-bar{ min-width:0!important; }
 
   /* ---- Modals: full-screen sheet ---- */
-  .modal-overlay{ padding:0; align-items:flex-end; }
+  /* Modales mobile: centrados, scrolleables */
+  .modal-overlay{
+    padding:12px;
+    align-items:center;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
   .modal{
     max-width:100%!important; width:100%;
-    max-height:92vh; border-radius:16px 16px 0 0;
-    padding:18px 14px; margin:0;
+    max-height:90vh; border-radius:14px;
+    padding:18px 14px; margin:auto;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
   }
-  .modal-close{ top:12px; right:14px; font-size:26px; }
-  .modal-title{ font-size:19px; padding-right:30px; }
+  .modal-close{ top:10px; right:12px; font-size:24px; }
+  .modal-title{ font-size:19px; padding-right:32px; }
+
+  /* Sofa quote modal: más alto en mobile */
+  #sofa-quote-modal .modal{
+    max-height:92vh;
+    overflow-y:auto;
+  }
+  /* Editor sofá */
+  #sofa-product-modal .modal{
+    max-height:88vh;
+    overflow-y:auto;
+  }
+  /* Modales de gestión sofás */
+  #sf-modal-sofa .modal,
+  #sf-modal-tela .modal,
+  #sf-modal-prov .modal{
+    max-height:88vh;
+    overflow-y:auto;
+  }
 
   /* ---- Forms: single column everywhere ---- */
   .form-row-2,.form-row-3,.cost-grid,.dims-inputs{ grid-template-columns:1fr; gap:10px; }
@@ -745,8 +771,8 @@ body.modal-open{overflow:hidden;}
     box-shadow:0 2px 8px rgba(0,0,0,.35);
     color:var(--white);
   }
-  #quote-modal.modal-overlay{ align-items:flex-start!important; padding:0; padding-top:56px; }
-  #quote-modal .modal{ margin:0!important; width:100%; border-radius:0 0 16px 16px; max-height:calc(100vh - 56px); overflow:hidden; }
+  #quote-modal.modal-overlay{ align-items:flex-start!important; padding:0; padding-top:52px; }
+  #quote-modal .modal{ margin:0!important; width:100%; border-radius:0 0 14px 14px; max-height:calc(100vh - 52px); overflow:hidden; }
 }
 @media(max-width:420px){
   .qm-img-wrap{ min-height:180px; max-height:32vh; }
@@ -1163,7 +1189,10 @@ body.modal-open{overflow:hidden;}
       <div id="sf-modelos" class="sf-section">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--walnut);">Modelos de sofá</div>
-          <button class="btn-primary" onclick="sfAbrirModalSofa()">+ Agregar</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button class="btn-secondary" onclick="syncSofasToProductsQuick()" title="Actualiza el catálogo con los modelos actuales">🔄 Sincronizar catálogo</button>
+            <button class="btn-primary" onclick="sfAbrirModalSofa()">+ Agregar</button>
+          </div>
         </div>
         <div class="sf-table-wrap"><table class="sf-table">
           <thead><tr><th>Nombre</th><th>Proveedor</th><th>Largo ref.</th><th>Precio ref.</th><th>Tela ref.</th><th>Ancho tela</th><th>Factor</th><th>Acciones</th></tr></thead>
@@ -5109,6 +5138,44 @@ function exportarSinPrecio(){
   a.click();
   URL.revokeObjectURL(url);
   toast('✓ Lista exportada');
+}
+
+
+async function syncSofasToProductsQuick(){
+  // Buscar la categoría configurada en Config, o pedir una
+  const catSel = document.getElementById('sofa-sync-cat');
+  const sofaCat = catSel ? catSel.value : '';
+  if(!sofaCat){
+    toast('Primero configurá la categoría de sofás en Config → Sofás en el catálogo');
+    return;
+  }
+  if(!confirm('Sincronizar modelos del cotizador con la categoría "'+sofaCat+'" en el catálogo. ¿Continuar?'))return;
+  toast('Sincronizando...');
+
+  // Borrar productos actuales de esa categoría
+  const existingSnap = await window._getDocs(window._collection(window._db,'moss_products'));
+  const toDelete = [];
+  existingSnap.forEach(d=>{ if(d.data().cat===sofaCat) toDelete.push(d.id); });
+  for(const did of toDelete){
+    await window._deleteDoc(window._doc(window._db,'moss_products',did));
+  }
+
+  // Crear uno por cada modelo actual en sfSofas
+  for(const sofa of sfSofas){
+    const pid='sofa_'+sofa.id;
+    // Preservar imágenes si ya existían
+    const existing = products.find(x=>x.sofaModelId===sofa.id);
+    await window._setDoc(window._doc(window._db,'moss_products',pid),{
+      id:pid, name:sofa.nombre, cat:sofaCat,
+      sku:'SF-'+sofa.nombre.toUpperCase().replace(/\s+/g,'-').substring(0,12),
+      desc:sofa.desc||'', sofaModelId:sofa.id,
+      images:existing?existing.images||[]:[],
+      measures:[], upholstery:true, madera:false, carp:0, lust:0, extra:0
+    });
+  }
+
+  toast('✓ '+sfSofas.length+' sofás sincronizados');
+  await loadFromFirebase();
 }
 
 </script>
