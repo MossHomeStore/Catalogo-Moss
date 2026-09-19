@@ -3531,6 +3531,7 @@ async function sendQuoteViaWhatsApp(){
       }
     } else {
       // Desktop or browser without Share API — download directly
+      try {
         canvas.toBlob(blob => {
           if(!blob){ return; }
           downloadBlob(blob, fileName);
