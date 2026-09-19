@@ -1253,8 +1253,8 @@ body.modal-open{overflow:hidden;}
           <div id="sqm-tela-info" style="display:none;font-size:11px;color:var(--driftwood);margin-top:4px;"></div>
         </div>
 
-        <!-- Tipo de cambio (colapsado, editable si es necesario) -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <!-- Tipo de cambio (solo visible para admin logueado) -->
+        <div id="sqm-tc-row" style="display:none;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
           <span style="font-size:12px;color:var(--driftwood);">TC: $</span>
           <input class="form-input" type="number" id="sqm-tc" oninput="sqmCalc()" style="width:80px;padding:4px 8px;font-size:12px;">
           <span style="font-size:11px;color:var(--driftwood);">(modificar si es necesario)</span>
@@ -1311,10 +1311,10 @@ body.modal-open{overflow:hidden;}
               <div class="sf-lista-value" id="sqm-r-lista">-</div>
             </div>
           </div>
-          <a id="sqm-wapp-link" href="#" target="_blank" class="wapp-btn" style="display:none;margin-top:10px;">
+          <button id="sqm-wapp-link" onclick="sendSofaQuoteViaWhatsApp()" class="wapp-btn" style="display:none;margin-top:10px;border:none;cursor:pointer;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             Enviar por WhatsApp
-          </a>
+          </button>
           <button id="sqm-pedido-btn" style="display:none;width:100%;background:#25D366;color:#fff;border:none;padding:12px;border-radius:8px;font-size:15px;cursor:pointer;margin-top:8px;" onclick="openOrderModal('sofa')">🛒 Hacer pedido</button>
         </div>
       </div>
@@ -1916,11 +1916,11 @@ body.modal-open{overflow:hidden;}
     <div class="qpc-desc" id="qpc-desc"></div>
     <!-- Dimensions -->
     <div class="qpc-dims-box">
-      <div class="qpc-label2">Medidas seleccionadas</div>
+      <div class="qpc-label2" id="qpc-dims-title">Medidas seleccionadas</div>
       <div class="qpc-dims-row">
-        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-w">—</div><div class="qpc-dim-lbl">Ancho cm</div></div>
-        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-h">—</div><div class="qpc-dim-lbl">Alto cm</div></div>
-        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-d">—</div><div class="qpc-dim-lbl">Prof. cm</div></div>
+        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-w">—</div><div class="qpc-dim-lbl" id="qpc-dim-lbl-w">Ancho cm</div></div>
+        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-h">—</div><div class="qpc-dim-lbl" id="qpc-dim-lbl-h">Alto cm</div></div>
+        <div class="qpc-dim-col"><div class="qpc-dim-val" id="qpc-dim-d">—</div><div class="qpc-dim-lbl" id="qpc-dim-lbl-d">Prof. cm</div></div>
       </div>
     </div>
     <!-- Price -->
@@ -3365,6 +3365,73 @@ function previewSku() {
 
 
 // ===== PNG QUOTE EXPORT =====
+// Carga una imagen en un contenedor de tarjeta PNG (qpc-img-wrap/opc-img-wrap, etc.),
+// probando fetch+blob primero (canvas limpio) y usando <img> + allowTaint como respaldo
+// cuando la imagen no se puede leer por CORS. Compartida entre las tarjetas de
+// cotización, pedido y sofás para no repetir esta lógica tres veces.
+async function loadImageIntoCard(imgWrapEl, imgInner, imageSrc, containerW, containerH){
+  const placeholderSvg = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+  if(!imageSrc){
+    imgInner.innerHTML = placeholderSvg;
+    return;
+  }
+  await new Promise(async resolve => {
+    function drawImgOnCanvas(tmp){
+      const imgRatio = tmp.naturalWidth / tmp.naturalHeight;
+      const boxRatio = containerW / containerH;
+      let drawW, drawH, drawX, drawY;
+      if(imgRatio > boxRatio){
+        drawW = containerW;
+        drawH = Math.round(containerW / imgRatio);
+        drawX = 0;
+        drawY = Math.round((containerH - drawH) / 2);
+      } else {
+        drawH = containerH;
+        drawW = Math.round(containerH * imgRatio);
+        drawX = Math.round((containerW - drawW) / 2);
+        drawY = 0;
+      }
+      const cvs = document.createElement('canvas');
+      cvs.width  = containerW;
+      cvs.height = containerH;
+      const ctx = cvs.getContext('2d');
+      ctx.fillStyle = '#f0ebe4';
+      ctx.fillRect(0, 0, containerW, containerH);
+      ctx.drawImage(tmp, drawX, drawY, drawW, drawH);
+      imgInner.innerHTML = '';
+      imgInner.style.cssText = 'width:100%;height:100%;';
+      imgInner.appendChild(cvs);
+      imgWrapEl.style.height = containerH + 'px';
+    }
+    function useImgFallback(){
+      // Coloca un <img> normal en la tarjeta; html2canvas lo dibuja con allowTaint
+      imgInner.innerHTML = '';
+      imgInner.style.cssText = 'width:100%;height:'+containerH+'px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f0ebe4;';
+      const el = document.createElement('img');
+      el.src = imageSrc;
+      el.style.cssText = 'max-width:100%;max-height:'+containerH+'px;object-fit:contain;display:block;';
+      imgInner.appendChild(el);
+      imgWrapEl.style.height = containerH + 'px';
+      if(el.complete){ resolve(); } else { el.onload = resolve; el.onerror = resolve; }
+    }
+    try {
+      // Intentar fetch+blob primero (canvas limpio, sin taint)
+      const resp = await fetch(imageSrc);
+      if(!resp.ok && resp.status !== 0) throw new Error('fetch status ' + resp.status);
+      const blob = await resp.blob();
+      if(!blob || blob.size === 0) throw new Error('empty blob');
+      const blobUrl = URL.createObjectURL(blob);
+      const tmp = new Image();
+      tmp.onload = () => { drawImgOnCanvas(tmp); URL.revokeObjectURL(blobUrl); resolve(); };
+      tmp.onerror = () => { URL.revokeObjectURL(blobUrl); useImgFallback(); };
+      tmp.src = blobUrl;
+    } catch(e) {
+      // Error de CORS o de red — usar <img> normal (allowTaint se encarga)
+      useImgFallback();
+    }
+  });
+}
+
 async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
   // Logo
   const logoSrc = document.querySelector('.logo-img').src;
@@ -3381,71 +3448,12 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
   // Image
   const imgWrapEl = document.getElementById('qpc-img-wrap');
   const imgInner  = document.getElementById('qpc-img-inner');
-  if(p.images && p.images.length){
-    // Strategy: load image normally (browser cache, no CORS needed for display),
-    // then use fetch+blob for canvas rendering. If fetch fails due to CORS, fall back
-    // to placing a regular <img> in the card and rely on allowTaint in html2canvas.
-    await new Promise(async resolve => {
-      const containerW = 520;
-      const containerH = 220;
-      function drawImgOnCanvas(tmp){
-        const imgRatio = tmp.naturalWidth / tmp.naturalHeight;
-        const boxRatio = containerW / containerH;
-        let drawW, drawH, drawX, drawY;
-        if(imgRatio > boxRatio){
-          drawW = containerW;
-          drawH = Math.round(containerW / imgRatio);
-          drawX = 0;
-          drawY = Math.round((containerH - drawH) / 2);
-        } else {
-          drawH = containerH;
-          drawW = Math.round(containerH * imgRatio);
-          drawX = Math.round((containerW - drawW) / 2);
-          drawY = 0;
-        }
-        const cvs = document.createElement('canvas');
-        cvs.width  = containerW;
-        cvs.height = containerH;
-        const ctx = cvs.getContext('2d');
-        ctx.fillStyle = '#f0ebe4';
-        ctx.fillRect(0, 0, containerW, containerH);
-        ctx.drawImage(tmp, drawX, drawY, drawW, drawH);
-        imgInner.innerHTML = '';
-        imgInner.style.cssText = 'width:100%;height:100%;';
-        imgInner.appendChild(cvs);
-        imgWrapEl.style.height = containerH + 'px';
-      }
-      function useImgFallback(){
-        // Place a regular <img> in the card; html2canvas will draw it with allowTaint
-        imgInner.innerHTML = '';
-        imgInner.style.cssText = 'width:100%;height:'+containerH+'px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f0ebe4;';
-        const el = document.createElement('img');
-        el.src = p.images[0];
-        el.style.cssText = 'max-width:100%;max-height:'+containerH+'px;object-fit:contain;display:block;';
-        imgInner.appendChild(el);
-        imgWrapEl.style.height = containerH + 'px';
-        // Wait for img to load before resolving
-        if(el.complete){ resolve(); } else { el.onload = resolve; el.onerror = resolve; }
-      }
-      try {
-        // Try fetch+blob first (clean canvas, no taint)
-        const resp = await fetch(p.images[0]);
-        if(!resp.ok && resp.status !== 0) throw new Error('fetch status ' + resp.status);
-        const blob = await resp.blob();
-        if(!blob || blob.size === 0) throw new Error('empty blob');
-        const blobUrl = URL.createObjectURL(blob);
-        const tmp = new Image();
-        tmp.onload = () => { drawImgOnCanvas(tmp); URL.revokeObjectURL(blobUrl); resolve(); };
-        tmp.onerror = () => { URL.revokeObjectURL(blobUrl); useImgFallback(); };
-        tmp.src = blobUrl;
-      } catch(e) {
-        // CORS or network error — use regular <img> tag (allowTaint handles it)
-        useImgFallback();
-      }
-    }); // end await new Promise
-  } else {
-    imgInner.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
-  }
+  await loadImageIntoCard(imgWrapEl, imgInner, (p.images && p.images.length) ? p.images[0] : null, 520, 220);
+  // Restaurar títulos de la fila de medidas (por si quedaron cambiados por la tarjeta de sofá)
+  document.getElementById('qpc-dims-title').textContent = 'Medidas seleccionadas';
+  document.getElementById('qpc-dim-lbl-w').textContent = 'Ancho cm';
+  document.getElementById('qpc-dim-lbl-h').textContent = 'Alto cm';
+  document.getElementById('qpc-dim-lbl-d').textContent = 'Prof. cm';
   // Dimensions — read directly from UI state (most reliable source)
   let dimW = '—', dimH = '—', dimD = '—';
   if(quoteMode === 'custom'){
@@ -3472,6 +3480,42 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
   document.getElementById('qpc-dim-d').textContent = dimD;
   // Price
   document.getElementById('qpc-price').textContent = priceStr;
+}
+
+// Llena la misma tarjeta PNG de cotización (#quote-png-card) pero con datos de un sofá.
+async function populateSofaQuoteCard(sofa, tela, dims, precioLista, imgSrc){
+  const logoSrc = document.querySelector('.logo-img').src;
+  document.getElementById('qpc-logo-img').src = logoSrc;
+  document.getElementById('qpc-date').textContent = new Date().toLocaleDateString('es-UY');
+  document.getElementById('qpc-name').textContent = sofa.nombre + (dims.esquinero ? ' (Esquinero)' : '');
+  document.getElementById('qpc-sku').textContent = tela.nombre || '';
+  document.getElementById('qpc-desc').textContent = tela.nombre ? ('Tela: ' + tela.nombre) : '';
+  document.getElementById('qpc-cat-badge').textContent = 'Sofás · Tapizado';
+
+  const imgWrapEl = document.getElementById('qpc-img-wrap');
+  const imgInner  = document.getElementById('qpc-img-inner');
+  await loadImageIntoCard(imgWrapEl, imgInner, imgSrc, 520, 220);
+
+  // Medidas: reutilizamos las 3 columnas de la tarjeta con etiquetas adaptadas al sofá
+  if(dims.esquinero){
+    document.getElementById('qpc-dims-title').textContent = 'Medidas del esquinero';
+    document.getElementById('qpc-dim-lbl-w').textContent = 'Lado A cm';
+    document.getElementById('qpc-dim-lbl-h').textContent = 'Lado B cm';
+    document.getElementById('qpc-dim-lbl-d').textContent = dims.isla ? 'Isla cm' : '—';
+    document.getElementById('qpc-dim-w').textContent = dims.ladoA || '—';
+    document.getElementById('qpc-dim-h').textContent = dims.ladoB || '—';
+    document.getElementById('qpc-dim-d').textContent = dims.isla ? dims.isla : '—';
+  } else {
+    document.getElementById('qpc-dims-title').textContent = 'Medidas seleccionadas';
+    document.getElementById('qpc-dim-lbl-w').textContent = 'Largo cm';
+    document.getElementById('qpc-dim-lbl-h').textContent = dims.isla ? 'Isla cm' : '—';
+    document.getElementById('qpc-dim-lbl-d').textContent = '—';
+    document.getElementById('qpc-dim-w').textContent = dims.largo || '—';
+    document.getElementById('qpc-dim-h').textContent = dims.isla ? dims.isla : '—';
+    document.getElementById('qpc-dim-d').textContent = '—';
+  }
+
+  document.getElementById('qpc-price').textContent = '$' + Math.round(precioLista).toLocaleString('es-UY');
 }
 
 async function sendQuoteViaWhatsApp(){
@@ -3534,17 +3578,19 @@ async function sendQuoteViaWhatsApp(){
           return;
         } catch(e){
           if(e.name === 'AbortError') return; // usuario canceló, no hacemos nada más
-          // Share falló por otra razón — descargamos y abrimos WhatsApp con texto
+          // Share falló por otra razón — abrimos WhatsApp primero (todavía dentro del
+          // gesto del click) y recién después descargamos la imagen, para que la
+          // descarga no bloquee la apertura de WhatsApp (pasa en iOS Safari)
+          window.open(wappUrl, '_blank');
           downloadBlob(blob, fileName);
           toast('Imagen guardada — adjuntala en WhatsApp');
-          window.open(wappUrl, '_blank');
           return;
         }
       }
-      // canShare devolvió false — descargamos y abrimos WhatsApp
+      // canShare devolvió false — abrimos WhatsApp primero, luego descargamos
+      window.open(wappUrl, '_blank');
       downloadBlob(blob, fileName);
       toast('Imagen guardada — adjuntala en WhatsApp');
-      window.open(wappUrl, '_blank');
     } else {
       // Desktop — descargamos y redirigimos la pestaña ya abierta a WhatsApp
       downloadBlob(blob, fileName);
@@ -4948,6 +4994,9 @@ function openSofaQuote(sofaId){
   // TC from global config
   document.getElementById('sqm-tc').value=sfTc();
 
+  // El tipo de cambio solo se muestra/edita si hay un admin logueado
+  document.getElementById('sqm-tc-row').style.display = isAdmin ? 'flex' : 'none';
+
   // Show/hide cost rows based on admin status
   const adminRows = document.querySelectorAll('.sqm-admin-row');
   adminRows.forEach(r=>{
@@ -5074,10 +5123,93 @@ function sqmCalc(){
     'Avda. Rivera 2157, Montevideo - @moss.uy',
     'Precio estimado. Sujeto a confirmacion.'
   ].filter(l=>l!=='').join('\n');
+  // Guardamos los datos calculados para generar la tarjeta PNG al enviar
+  const sofaImgSrc = document.getElementById('sqm-img-main-src')?.src || null;
+  window._sqmQuoteData = {
+    sofa, tela, precioLista, wappMsg: lineas,
+    dims: esEsqCheck
+      ? { esquinero:true, ladoA:ladoAv, ladoB:ladoBv, isla:(conIsla&&islaMed)?(islaMed+'×'+islaMed):null }
+      : { esquinero:false, largo:largoV, isla:(conIsla&&islaMed)?(islaMed+'×'+islaMed):null },
+    imgSrc: sofaImgSrc
+  };
+
   const wl=document.getElementById('sqm-wapp-link');
-  wl.href='https://wa.me/?text='+encodeURIComponent(lineas);
   wl.style.display='flex';
   document.getElementById('sqm-pedido-btn').style.display='block';
+}
+
+async function sendSofaQuoteViaWhatsApp(){
+  const btn = document.getElementById('sqm-wapp-link');
+  const data = window._sqmQuoteData;
+  if(!data){ toast('Completá la cotización primero'); return; }
+
+  const origHTML = btn.innerHTML;
+  btn.innerHTML = '⏳ Generando...';
+  btn.disabled = true;
+
+  const wappUrl = 'https://wa.me/59899062020?text=' + encodeURIComponent(data.wappMsg);
+
+  // El share nativo (mobile) NO necesita pestaña — abrir una de entrada pone la página
+  // en segundo plano y el navegador frena el JS antes de terminar de generar el PNG.
+  const canUseNativeShare = !!(navigator.share && navigator.canShare);
+  const waWindow = canUseNativeShare ? null : window.open('', '_blank');
+  const goToWhatsApp = () => {
+    if(waWindow && !waWindow.closed){ waWindow.location.href = wappUrl; }
+    else { window.open(wappUrl, '_blank'); }
+  };
+
+  try {
+    await populateSofaQuoteCard(data.sofa, data.tela, data.dims, data.precioLista, data.imgSrc);
+    const card = document.getElementById('quote-png-card');
+    card.style.left = '-9999px';
+    card.style.display = 'block';
+    await document.fonts.ready;
+    await new Promise(r => setTimeout(r, 400));
+    const canvas = await html2canvas(card, {
+      scale: 2, useCORS: true, allowTaint: true,
+      backgroundColor: '#ffffff', width: 520, logging: false,
+    });
+    card.style.display = '';
+
+    const safeName = (data.sofa.nombre||'sofa').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
+    const fileName = 'moss-' + safeName + '.png';
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+    if(!blob){ goToWhatsApp(); return; }
+
+    if(canUseNativeShare){
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if(navigator.canShare({ files: [file] })){
+        try {
+          await navigator.share({ files: [file], title: 'Cotización ' + data.sofa.nombre, text: data.wappMsg });
+          return;
+        } catch(e){
+          if(e.name === 'AbortError') return;
+          window.open(wappUrl, '_blank');
+          downloadBlob(blob, fileName);
+          toast('Imagen guardada — adjuntala en WhatsApp');
+          return;
+        }
+      }
+      window.open(wappUrl, '_blank');
+      downloadBlob(blob, fileName);
+      toast('Imagen guardada — adjuntala en WhatsApp');
+    } else {
+      downloadBlob(blob, fileName);
+      toast('PNG descargado — adjuntalo en WhatsApp');
+      goToWhatsApp();
+    }
+
+  } catch(e){
+    toast('Error al generar imagen: ' + e.message);
+    console.error(e);
+    document.getElementById('quote-png-card').style.display = '';
+    goToWhatsApp();
+  } finally {
+    btn.innerHTML = origHTML;
+    btn.disabled = false;
+  }
 }
 
 
@@ -5166,52 +5298,8 @@ async function populateOrderCard(clientName, phone, address, city, payment, payL
   // Imagen del producto
   const imgWrapEl = document.getElementById('opc-img-wrap');
   const imgInner  = document.getElementById('opc-img-inner');
-  const placeholder = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
-  const imgSrc = _orderContext.product?.images?.[0];
-  if(imgSrc){
-    await new Promise(async resolve => {
-      const containerW = 520, containerH = 200;
-      function drawImg(tmp){
-        const ir = tmp.naturalWidth / tmp.naturalHeight;
-        const br = containerW / containerH;
-        let dW, dH, dX, dY;
-        if(ir > br){ dW=containerW; dH=Math.round(containerW/ir); dX=0; dY=Math.round((containerH-dH)/2); }
-        else { dH=containerH; dW=Math.round(containerH*ir); dX=Math.round((containerW-dW)/2); dY=0; }
-        const cvs = document.createElement('canvas');
-        cvs.width=containerW; cvs.height=containerH;
-        const ctx=cvs.getContext('2d');
-        ctx.fillStyle='#f0ebe4'; ctx.fillRect(0,0,containerW,containerH);
-        ctx.drawImage(tmp,dX,dY,dW,dH);
-        imgInner.innerHTML=''; imgInner.style.cssText='width:100%;height:100%;';
-        imgInner.appendChild(cvs); imgWrapEl.style.height=containerH+'px';
-      }
-      function useImgFallback(){
-        imgInner.innerHTML='';
-        imgInner.style.cssText='width:100%;height:'+containerH+'px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f0ebe4;';
-        const el=document.createElement('img');
-        el.src=imgSrc;
-        el.style.cssText='max-width:100%;max-height:'+containerH+'px;object-fit:contain;display:block;';
-        imgInner.appendChild(el);
-        imgWrapEl.style.height=containerH+'px';
-        if(el.complete){ resolve(); } else { el.onload=resolve; el.onerror=resolve; }
-      }
-      try {
-        const resp = await fetch(imgSrc);
-        if(!resp.ok && resp.status !== 0) throw new Error('status ' + resp.status);
-        const blob = await resp.blob();
-        if(!blob || blob.size===0) throw new Error('empty blob');
-        const blobUrl = URL.createObjectURL(blob);
-        const tmp = new Image();
-        tmp.onload = () => { drawImg(tmp); URL.revokeObjectURL(blobUrl); resolve(); };
-        tmp.onerror = () => { URL.revokeObjectURL(blobUrl); useImgFallback(); };
-        tmp.src = blobUrl;
-      } catch(e) {
-        useImgFallback();
-      }
-    });
-  } else {
-    imgInner.innerHTML = placeholder;
-  }
+  const imgSrc = _orderContext.product?.images?.[0] || null;
+  await loadImageIntoCard(imgWrapEl, imgInner, imgSrc, 520, 200);
 }
 
 async function submitOrder(){
@@ -5309,16 +5397,19 @@ async function submitOrder(){
           return;
         } catch(e){
           if(e.name === 'AbortError'){ closeModal('order-modal'); return; }
+          // Abrimos WhatsApp primero (todavía dentro del gesto del click) y recién
+          // después descargamos la imagen, para que la descarga no bloquee la
+          // apertura de WhatsApp (pasa en iOS Safari)
+          window.open(wappUrl, '_blank');
           downloadBlob(blob, fileName);
           toast('Imagen guardada — adjuntala en WhatsApp');
-          window.open(wappUrl, '_blank');
           closeModal('order-modal');
           return;
         }
       }
+      window.open(wappUrl, '_blank');
       downloadBlob(blob, fileName);
       toast('Imagen guardada — adjuntala en WhatsApp');
-      window.open(wappUrl, '_blank');
     } else {
       downloadBlob(blob, fileName);
       toast('Imagen guardada — adjuntala en WhatsApp');
