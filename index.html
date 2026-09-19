@@ -3314,25 +3314,21 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
   const imgWrapEl = document.getElementById('qpc-img-wrap');
   const imgInner  = document.getElementById('qpc-img-inner');
   if(p.images && p.images.length){
-    // Draw image onto a canvas — html2canvas renders <canvas> perfectly,
-    // while <img> with object-fit is mis-handled and causes stretching.
-    await new Promise(resolve => {
-      const tmp = new Image();
-      tmp.crossOrigin = 'anonymous';
-      tmp.onload = () => {
-        const containerW = 520;  // full card width
-        const containerH = 220;  // img-wrap height
+    // Draw image onto a canvas — html2canvas renders <canvas> perfectly.
+    // Use fetch+blob to avoid CORS issues with Firebase Storage images.
+    await new Promise(async resolve => {
+      const containerW = 520;
+      const containerH = 220;
+      function drawImgOnCanvas(tmp){
         const imgRatio = tmp.naturalWidth / tmp.naturalHeight;
         const boxRatio = containerW / containerH;
         let drawW, drawH, drawX, drawY;
         if(imgRatio > boxRatio){
-          // landscape: fit width, letterbox top/bottom
           drawW = containerW;
           drawH = Math.round(containerW / imgRatio);
           drawX = 0;
           drawY = Math.round((containerH - drawH) / 2);
         } else {
-          // portrait or square: fit height, pillarbox sides
           drawH = containerH;
           drawW = Math.round(containerH * imgRatio);
           drawX = Math.round((containerW - drawW) / 2);
@@ -3342,23 +3338,32 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
         cvs.width  = containerW;
         cvs.height = containerH;
         const ctx = cvs.getContext('2d');
-        // Fill background to match card linen color
         ctx.fillStyle = '#f0ebe4';
         ctx.fillRect(0, 0, containerW, containerH);
         ctx.drawImage(tmp, drawX, drawY, drawW, drawH);
         imgInner.innerHTML = '';
         imgInner.style.cssText = 'width:100%;height:100%;';
         imgInner.appendChild(cvs);
-        // Also make img-wrap the exact canvas size so html2canvas doesn't clip
         imgWrapEl.style.height = containerH + 'px';
-        resolve();
-      };
-      tmp.onerror = () => {
-        imgInner.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
-        resolve();
-      };
-      tmp.src = p.images[0];
-    });
+      }
+      const placeholder = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+      try {
+        // Fetch the image as a blob to avoid CORS taint on firebase storage URLs
+        const resp = await fetch(p.images[0]);
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const tmp = new Image();
+        tmp.onload = () => { drawImgOnCanvas(tmp); URL.revokeObjectURL(blobUrl); resolve(); };
+        tmp.onerror = () => { imgInner.innerHTML = placeholder; URL.revokeObjectURL(blobUrl); resolve(); };
+        tmp.src = blobUrl;
+      } catch(e) {
+        // fallback: try loading directly with crossOrigin
+        const tmp = new Image();
+        tmp.crossOrigin = 'anonymous';
+        tmp.onload = () => { drawImgOnCanvas(tmp); resolve(); };
+        tmp.onerror = () => { imgInner.innerHTML = placeholder; resolve(); };
+        tmp.src = p.images[0];
+      }
   } else {
     imgInner.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   }
@@ -4977,15 +4982,18 @@ let _orderContext = {}; // almacena datos del producto al abrir el modal
 function openOrderModal(type){
   _orderContext = {type};
 
-  // Recopilar datos del producto según el tipo
   if(type === 'wood'){
     const name = document.getElementById('qr-product')?.textContent || '';
     const dims = document.getElementById('qr-dims')?.textContent || '';
     const price = document.getElementById('qr-price')?.textContent || '';
+    _orderContext.name = name;
+    _orderContext.dims = dims;
+    _orderContext.price = price;
     _orderContext.summary = `${name}${dims ? ' — '+dims : ''}\nPrecio de lista: ${price}`;
     _orderContext.isSofa = false;
+    _orderContext.product = quoteProduct || null;
+    _orderContext.measure = window._lastSelectedMeasure || null;
   } else {
-    // sofá: leer del modal de sofás
     const modelName = document.getElementById('sqm-titulo')?.textContent || 'Sofá';
     const tSel = document.getElementById('sqm-tela');
     const telaName = tSel ? tSel.options[tSel.selectedIndex]?.text || '' : '';
@@ -5000,15 +5008,20 @@ function openOrderModal(type){
       dims = largo ? `Largo: ${largo} cm` : '';
     }
     const price = document.getElementById('sqm-r-lista')?.textContent || '';
+    _orderContext.name = modelName;
+    _orderContext.dims = [telaName, dims].filter(Boolean).join(' · ');
+    _orderContext.price = price;
     _orderContext.summary = [modelName, telaName, dims, price ? 'Precio de lista: '+price : ''].filter(Boolean).join('\n');
     _orderContext.isSofa = true;
+    // Capturar imagen actual del sofá
+    const sofaImgSrc = document.getElementById('sqm-img-main-src')?.src || '';
+    _orderContext.product = sofaImgSrc ? {name: modelName, images:[sofaImgSrc], cat:'Sofás', sku:'', desc:telaName+(dims?' · '+dims:'')} : null;
+    _orderContext.measure = null;
   }
 
-  // Poblar resumen en el modal
   document.getElementById('order-product-summary').textContent = _orderContext.summary;
   document.getElementById('order-sofa-note').style.display = _orderContext.isSofa ? 'block' : 'none';
 
-  // Limpiar campos
   ['order-name','order-phone','order-address','order-city'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.value = '';
@@ -5025,7 +5038,7 @@ function orderPaymentChange(){
   document.getElementById('order-discount-note').style.display = val === 'transferencia' ? 'block' : 'none';
 }
 
-function submitOrder(){
+async function submitOrder(){
   const name = document.getElementById('order-name')?.value.trim();
   const phone = document.getElementById('order-phone')?.value.trim();
   const address = document.getElementById('order-address')?.value.trim();
@@ -5058,9 +5071,74 @@ function submitOrder(){
     '_Pedido enviado desde el catálogo digital Moss Home Store._'
   ].filter(l => l !== '').join('\n');
 
-  const url = `https://wa.me/59899062020?text=${encodeURIComponent(msg)}`;
-  window.open(url, '_blank');
-  closeModal('order-modal');
+  const wappUrl = `https://wa.me/59899062020?text=${encodeURIComponent(msg)}`;
+
+  // Intentar generar PNG de cotización para compartir junto al pedido
+  const submitBtn = document.querySelector('#order-modal .btn-primary');
+  const origHTML = submitBtn ? submitBtn.innerHTML : '';
+  if(submitBtn){ submitBtn.innerHTML = '⏳ Generando...'; submitBtn.disabled = true; }
+
+  try {
+    if(_orderContext.product){
+      // Generar canvas con imagen del producto
+      const p = _orderContext.product;
+      const dimLabel = _orderContext.dims || '';
+      const priceStr = _orderContext.price || '';
+      await populateQuoteCard(_orderContext.name, dimLabel, priceStr, p, _orderContext.measure);
+      const card = document.getElementById('quote-png-card');
+      card.style.left = '-9999px';
+      card.style.display = 'block';
+      await document.fonts.ready;
+      await new Promise(r => setTimeout(r, 300));
+      const canvas = await html2canvas(card, {
+        scale: 2, useCORS: true, allowTaint: true,
+        backgroundColor: '#ffffff', width: 520, logging: false,
+      });
+      card.style.display = '';
+
+      const safeName = (p.name||'pedido').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
+      const fileName = 'moss-pedido-' + safeName + '.png';
+
+      if(navigator.share && navigator.canShare){
+        canvas.toBlob(async blob => {
+          const file = new File([blob], fileName, { type: 'image/png' });
+          if(navigator.canShare({ files: [file] })){
+            try {
+              // Compartir imagen primero; luego abrir WhatsApp con texto
+              await navigator.share({ files: [file], title: 'Pedido Moss Home Store' });
+              window.open(wappUrl, '_blank');
+            } catch(e){
+              if(e.name !== 'AbortError'){
+                downloadBlob(blob, fileName);
+                window.open(wappUrl, '_blank');
+              }
+            }
+          } else {
+            downloadBlob(blob, fileName);
+            toast('Imagen descargada — adjuntala en WhatsApp');
+            window.open(wappUrl, '_blank');
+          }
+        }, 'image/png');
+      } else {
+        canvas.toBlob(blob => {
+          downloadBlob(blob, fileName);
+          toast('Imagen descargada — adjuntala en WhatsApp');
+          window.open(wappUrl, '_blank');
+        }, 'image/png');
+      }
+    } else {
+      // Sin imagen: ir directo a WhatsApp
+      window.open(wappUrl, '_blank');
+    }
+    closeModal('order-modal');
+  } catch(e){
+    console.error('Error generando imagen de pedido:', e);
+    // Fallback: abrir WhatsApp aunque falle el canvas
+    window.open(wappUrl, '_blank');
+    closeModal('order-modal');
+  } finally {
+    if(submitBtn){ submitBtn.innerHTML = origHTML; submitBtn.disabled = false; }
+  }
 }
 // ───────────────────────────────────────────────────────────────────────────
 
