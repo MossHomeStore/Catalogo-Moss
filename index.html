@@ -3488,9 +3488,12 @@ async function sendQuoteViaWhatsApp(){
   const wappMsg = `*Cotización — Moss Home Store*\n*Producto:* ${name}\n*Precio:* ${document.getElementById('qr-price').textContent}`;
   const wappUrl = `https://wa.me/59899062020?text=${encodeURIComponent(wappMsg)}`;
 
-  // Abrir la pestaña YA (dentro del gesto de click) para que el navegador no la bloquee
-  // como popup. Se redirige a la URL real una vez generado el PNG.
-  const waWindow = window.open('', '_blank');
+  // El share nativo (mobile) NO necesita pestaña — abrir una de entrada pone la página
+  // en segundo plano y el navegador frena el JS antes de terminar de generar el PNG.
+  // Solo pre-abrimos pestaña en el flujo de escritorio (sin Web Share API), donde sí
+  // hace falta para evitar el bloqueo de popups.
+  const canUseNativeShare = !!(navigator.share && navigator.canShare);
+  const waWindow = canUseNativeShare ? null : window.open('', '_blank');
   const goToWhatsApp = () => {
     if(waWindow && !waWindow.closed){ waWindow.location.href = wappUrl; }
     else { window.open(wappUrl, '_blank'); }
@@ -3515,46 +3518,38 @@ async function sendQuoteViaWhatsApp(){
     const safeName = (p.name||'cotizacion').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
     const fileName = 'moss-' + safeName + '.png';
 
-    // Try Web Share API first (mobile — shows WhatsApp directly)
-    if(navigator.share && navigator.canShare){
-      try {
-        canvas.toBlob(async blob => {
-          if(!blob){ goToWhatsApp(); return; }
-          const file = new File([blob], fileName, { type: 'image/png' });
-          if(navigator.canShare({ files: [file] })){
-            // Vamos a usar el share sheet nativo — cerramos la pestaña que abrimos preventivamente
-            if(waWindow && !waWindow.closed){ waWindow.close(); }
-            try {
-              await navigator.share({ files: [file], title: 'Cotización ' + p.name });
-              return;
-            } catch(e){
-              if(e.name === 'AbortError') return;
-              goToWhatsApp();
-              return;
-            }
-          }
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+    if(!blob){
+      goToWhatsApp();
+      return;
+    }
+
+    if(canUseNativeShare){
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if(navigator.canShare({ files: [file] })){
+        try {
+          // Se incluye el texto para que, si eligen WhatsApp, vaya junto con la imagen
+          await navigator.share({ files: [file], title: 'Cotización ' + p.name, text: wappMsg });
+          return;
+        } catch(e){
+          if(e.name === 'AbortError') return; // usuario canceló, no hacemos nada más
+          // Share falló por otra razón — descargamos y abrimos WhatsApp con texto
           downloadBlob(blob, fileName);
-          toast('Imagen guardada');
-          goToWhatsApp();
-        }, 'image/png');
-      } catch(secErr){
-        // Canvas tainted (CORS) — open WhatsApp with text only
-        goToWhatsApp();
-        toast('Se abrió WhatsApp (sin imagen por restricción CORS)');
+          toast('Imagen guardada — adjuntala en WhatsApp');
+          window.open(wappUrl, '_blank');
+          return;
+        }
       }
+      // canShare devolvió false — descargamos y abrimos WhatsApp
+      downloadBlob(blob, fileName);
+      toast('Imagen guardada — adjuntala en WhatsApp');
+      window.open(wappUrl, '_blank');
     } else {
-      // Desktop or browser without Share API — download directly
-      try {
-        canvas.toBlob(blob => {
-          if(!blob){ goToWhatsApp(); return; }
-          downloadBlob(blob, fileName);
-          toast('PNG descargado — adjuntalo en WhatsApp');
-          goToWhatsApp();
-        }, 'image/png');
-      } catch(secErr){
-        goToWhatsApp();
-        toast('Se abrió WhatsApp (sin imagen por restricción CORS)');
-      }
+      // Desktop — descargamos y redirigimos la pestaña ya abierta a WhatsApp
+      downloadBlob(blob, fileName);
+      toast('PNG descargado — adjuntalo en WhatsApp');
+      goToWhatsApp();
     }
 
   } catch(e){
@@ -5266,9 +5261,11 @@ async function submitOrder(){
 
   const wappUrl = `https://wa.me/59899062020?text=${encodeURIComponent(msg)}`;
 
-  // Abrir la pestaña YA (dentro del gesto de click) para que el navegador no la bloquee
-  // como popup. Se redirige a la URL real de WhatsApp una vez generado el PNG.
-  const waWindow = window.open('', '_blank');
+  // El share nativo (mobile) NO necesita pestaña — abrir una de entrada pone la página
+  // en segundo plano y el navegador frena el JS antes de terminar de generar el PNG.
+  // Solo pre-abrimos pestaña en el flujo de escritorio (sin Web Share API).
+  const canUseNativeShare = !!(navigator.share && navigator.canShare);
+  const waWindow = canUseNativeShare ? null : window.open('', '_blank');
   const goToWhatsApp = () => {
     if(waWindow && !waWindow.closed){ waWindow.location.href = wappUrl; }
     else { window.open(wappUrl, '_blank'); }
@@ -5295,31 +5292,36 @@ async function submitOrder(){
     const safeName = (_orderContext.name||'pedido').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
     const fileName = 'moss-pedido-' + safeName + '.png';
 
-    const shareAndOpen = (blob) => {
-      if(navigator.share && navigator.canShare){
-        const file = new File([blob], fileName, { type:'image/png' });
-        if(navigator.canShare({ files:[file] })){
-          // Si el navegador soporta compartir con imagen, cerramos la pestaña
-          // que abrimos preventivamente y usamos el share sheet nativo.
-          if(waWindow && !waWindow.closed){ waWindow.close(); }
-          navigator.share({ files:[file], title:'Pedido Moss Home Store' })
-            .then(() => window.open(wappUrl, '_blank'))
-            .catch(e => { if(e.name!=='AbortError'){ downloadBlob(blob,fileName); goToWhatsApp(); } });
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+    if(!blob){
+      goToWhatsApp();
+      closeModal('order-modal');
+      return;
+    }
+
+    if(canUseNativeShare){
+      const file = new File([blob], fileName, { type:'image/png' });
+      if(navigator.canShare({ files:[file] })){
+        try {
+          await navigator.share({ files:[file], title:'Pedido Moss Home Store', text: msg });
+          closeModal('order-modal');
+          return;
+        } catch(e){
+          if(e.name === 'AbortError'){ closeModal('order-modal'); return; }
+          downloadBlob(blob, fileName);
+          toast('Imagen guardada — adjuntala en WhatsApp');
+          window.open(wappUrl, '_blank');
+          closeModal('order-modal');
           return;
         }
       }
       downloadBlob(blob, fileName);
       toast('Imagen guardada — adjuntala en WhatsApp');
-      goToWhatsApp();
-    };
-
-    try {
-      canvas.toBlob(blob => {
-        if(blob){ shareAndOpen(blob); }
-        else { goToWhatsApp(); }
-      }, 'image/png');
-    } catch(secErr){
-      // Canvas tainted by CORS — open WhatsApp with text only
+      window.open(wappUrl, '_blank');
+    } else {
+      downloadBlob(blob, fileName);
+      toast('Imagen guardada — adjuntala en WhatsApp');
       goToWhatsApp();
     }
     closeModal('order-modal');
