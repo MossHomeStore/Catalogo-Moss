@@ -1961,6 +1961,74 @@ body.modal-open{overflow:hidden;}
   </div>
 </div>
 
+<!-- TARJETA PNG DE PEDIDO -->
+<div id="order-png-card" style="position:fixed;left:-9999px;top:0;width:520px;background:#fff;font-family:'DM Sans',sans-serif;display:none;">
+  <!-- Header -->
+  <div style="background:#5b4f47;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;">
+    <img id="opc-logo" src="" style="height:36px;object-fit:contain;">
+    <div style="text-align:right;">
+      <div style="font-size:9px;color:#ddc1a7;text-transform:uppercase;letter-spacing:.14em;">Pedido de compra</div>
+      <div id="opc-date" style="font-size:11px;color:#bd9479;margin-top:2px;"></div>
+    </div>
+  </div>
+  <!-- Foto del producto -->
+  <div id="opc-img-wrap" style="width:100%;height:200px;background:#f0ebe4;display:flex;align-items:center;justify-content:center;position:relative;">
+    <div id="opc-img-inner" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </div>
+    <div id="opc-cat-badge" style="position:absolute;top:10px;left:10px;background:rgba(91,79,71,.78);color:#fff;font-size:9px;padding:3px 9px;border-radius:20px;letter-spacing:.1em;text-transform:uppercase;"></div>
+  </div>
+  <!-- Producto -->
+  <div style="padding:18px 28px 10px;">
+    <div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:.12em;color:#bd9479;margin-bottom:4px;">Producto</div>
+    <div id="opc-name" style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#5b4f47;margin-bottom:2px;line-height:1.2;"></div>
+    <div id="opc-dims" style="font-size:12px;color:#745e4d;margin-bottom:10px;"></div>
+    <!-- Precio -->
+    <div style="background:#5b4f47;border-radius:8px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div>
+        <div style="color:rgba(255,255,255,.65);font-size:10px;margin-bottom:2px;">Precio de lista</div>
+        <div id="opc-payment-mode" style="color:rgba(255,255,255,.5);font-size:9px;"></div>
+      </div>
+      <div id="opc-price" style="font-family:'Cormorant Garamond',serif;font-size:32px;color:#FFE49A;line-height:1;"></div>
+    </div>
+  </div>
+  <!-- Divisor -->
+  <div style="border-top:1px solid #ede9e2;margin:0 28px 14px;"></div>
+  <!-- Datos del cliente -->
+  <div style="padding:0 28px 16px;">
+    <div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:.12em;color:#bd9479;margin-bottom:10px;">Datos del cliente</div>
+    <div style="display:grid;gap:8px;">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:14px;width:20px;flex-shrink:0;">👤</span>
+        <div><div style="font-size:12px;font-weight:600;color:#5b4f47;" id="opc-client-name"></div><div style="font-size:10px;color:#999;">Nombre</div></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:14px;width:20px;flex-shrink:0;">📱</span>
+        <div><div style="font-size:12px;font-weight:600;color:#5b4f47;" id="opc-client-phone"></div><div style="font-size:10px;color:#999;">Teléfono</div></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:14px;width:20px;flex-shrink:0;">📍</span>
+        <div><div style="font-size:12px;font-weight:600;color:#5b4f47;" id="opc-client-address"></div><div style="font-size:10px;color:#999;">Dirección de entrega</div></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:14px;width:20px;flex-shrink:0;">💳</span>
+        <div><div style="font-size:12px;font-weight:600;color:#5b4f47;" id="opc-client-payment"></div><div style="font-size:10px;color:#999;">Forma de pago</div></div>
+      </div>
+    </div>
+    <div id="opc-sofa-note" style="display:none;margin-top:12px;font-size:11px;color:#745e4d;padding:8px 10px;background:#fdf3e7;border-radius:6px;border-left:3px solid #c8a97e;">
+      📞 Nos comunicaremos para confirmar el color y tipo de tela del sofá.
+    </div>
+    <div id="opc-discount-note" style="display:none;margin-top:8px;font-size:11px;color:#2a7c3f;padding:8px 10px;background:#eafbee;border-radius:6px;border-left:3px solid #2a7c3f;">
+      🎉 <strong>10% de descuento</strong> por pago con transferencia bancaria.
+    </div>
+  </div>
+  <!-- Footer -->
+  <div style="background:#ede9e2;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:9px;color:#bd9479;font-style:italic;">Pedido recibido · A confirmar por Moss Home Store</div>
+    <div style="font-size:9px;color:#745e4d;letter-spacing:.1em;text-transform:uppercase;">moss home store</div>
+  </div>
+</div>
+
 <script>
 const MOSS_PHONE='59899062020';
 const MOSS_ADDR='Avda. Rivera 2157, Montevideo';
@@ -3314,8 +3382,9 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
   const imgWrapEl = document.getElementById('qpc-img-wrap');
   const imgInner  = document.getElementById('qpc-img-inner');
   if(p.images && p.images.length){
-    // Draw image onto a canvas — html2canvas renders <canvas> perfectly.
-    // Use fetch+blob to avoid CORS issues with Firebase Storage images.
+    // Strategy: load image normally (browser cache, no CORS needed for display),
+    // then use fetch+blob for canvas rendering. If fetch fails due to CORS, fall back
+    // to placing a regular <img> in the card and rely on allowTaint in html2canvas.
     await new Promise(async resolve => {
       const containerW = 520;
       const containerH = 220;
@@ -3346,23 +3415,32 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
         imgInner.appendChild(cvs);
         imgWrapEl.style.height = containerH + 'px';
       }
-      const placeholder = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+      function useImgFallback(){
+        // Place a regular <img> in the card; html2canvas will draw it with allowTaint
+        imgInner.innerHTML = '';
+        imgInner.style.cssText = 'width:100%;height:'+containerH+'px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f0ebe4;';
+        const el = document.createElement('img');
+        el.src = p.images[0];
+        el.style.cssText = 'max-width:100%;max-height:'+containerH+'px;object-fit:contain;display:block;';
+        imgInner.appendChild(el);
+        imgWrapEl.style.height = containerH + 'px';
+        // Wait for img to load before resolving
+        if(el.complete){ resolve(); } else { el.onload = resolve; el.onerror = resolve; }
+      }
       try {
-        // Fetch the image as a blob to avoid CORS taint on firebase storage URLs
+        // Try fetch+blob first (clean canvas, no taint)
         const resp = await fetch(p.images[0]);
+        if(!resp.ok && resp.status !== 0) throw new Error('fetch status ' + resp.status);
         const blob = await resp.blob();
+        if(!blob || blob.size === 0) throw new Error('empty blob');
         const blobUrl = URL.createObjectURL(blob);
         const tmp = new Image();
         tmp.onload = () => { drawImgOnCanvas(tmp); URL.revokeObjectURL(blobUrl); resolve(); };
-        tmp.onerror = () => { imgInner.innerHTML = placeholder; URL.revokeObjectURL(blobUrl); resolve(); };
+        tmp.onerror = () => { URL.revokeObjectURL(blobUrl); useImgFallback(); };
         tmp.src = blobUrl;
       } catch(e) {
-        // fallback: try loading directly with crossOrigin
-        const tmp = new Image();
-        tmp.crossOrigin = 'anonymous';
-        tmp.onload = () => { drawImgOnCanvas(tmp); resolve(); };
-        tmp.onerror = () => { imgInner.innerHTML = placeholder; resolve(); };
-        tmp.src = p.images[0];
+        // CORS or network error — use regular <img> tag (allowTaint handles it)
+        useImgFallback();
       }
     }); // end await new Promise
   } else {
@@ -3406,6 +3484,10 @@ async function sendQuoteViaWhatsApp(){
   btn.innerHTML = '⏳ Generando...';
   btn.disabled = true;
 
+  // Build WhatsApp text fallback URL
+  const wappMsg = `*Cotización — Moss Home Store*\n*Producto:* ${name}\n*Precio:* ${document.getElementById('qr-price').textContent}`;
+  const wappUrl = `https://wa.me/59899062020?text=${encodeURIComponent(wappMsg)}`;
+
   try {
     // Generate PNG canvas
     const p = quoteProduct;
@@ -3427,26 +3509,37 @@ async function sendQuoteViaWhatsApp(){
 
     // Try Web Share API first (mobile — shows WhatsApp directly)
     if(navigator.share && navigator.canShare){
-      canvas.toBlob(async blob => {
-        const file = new File([blob], fileName, { type: 'image/png' });
-        if(navigator.canShare({ files: [file] })){
-          try {
-            await navigator.share({ files: [file], title: 'Cotización ' + p.name });
-            return;
-          } catch(e){
-            if(e.name === 'AbortError') return; // user cancelled — don't fallback
+      try {
+        canvas.toBlob(async blob => {
+          if(!blob){ window.open(wappUrl,'_blank'); return; }
+          const file = new File([blob], fileName, { type: 'image/png' });
+          if(navigator.canShare({ files: [file] })){
+            try {
+              await navigator.share({ files: [file], title: 'Cotización ' + p.name });
+              return;
+            } catch(e){
+              if(e.name === 'AbortError') return;
+            }
           }
-        }
-        // canShare returned false — fallback to download
-        downloadBlob(blob, fileName);
-        toast('Imagen guardada');
-      }, 'image/png');
+          downloadBlob(blob, fileName);
+          toast('Imagen guardada');
+        }, 'image/png');
+      } catch(secErr){
+        // Canvas tainted (CORS) — open WhatsApp with text only
+        window.open(wappUrl, '_blank');
+        toast('Se abrió WhatsApp (sin imagen por restricción CORS)');
+      }
     } else {
       // Desktop or browser without Share API — download directly
-      canvas.toBlob(blob => {
-        downloadBlob(blob, fileName);
-        toast('PNG descargado');
-      }, 'image/png');
+        canvas.toBlob(blob => {
+          if(!blob){ return; }
+          downloadBlob(blob, fileName);
+          toast('PNG descargado');
+        }, 'image/png');
+      } catch(secErr){
+        window.open(wappUrl, '_blank');
+        toast('Se abrió WhatsApp (sin imagen por restricción CORS)');
+      }
     }
 
   } catch(e){
@@ -5039,17 +5132,100 @@ function orderPaymentChange(){
   document.getElementById('order-discount-note').style.display = val === 'transferencia' ? 'block' : 'none';
 }
 
+async function populateOrderCard(clientName, phone, address, city, payment, payLabel){
+  // Logo y fecha
+  document.getElementById('opc-logo').src = document.querySelector('.logo-img').src;
+  document.getElementById('opc-date').textContent = new Date().toLocaleDateString('es-UY');
+  // Producto
+  document.getElementById('opc-name').textContent = _orderContext.name || '';
+  document.getElementById('opc-dims').textContent = _orderContext.dims || '';
+  document.getElementById('opc-price').textContent = _orderContext.price || '';
+  document.getElementById('opc-cat-badge').textContent = _orderContext.isSofa ? 'Sofás' : (_orderContext.product?.cat || '');
+  // Forma de pago en el precio
+  const payMode = payment === 'transferencia' ? '−10% aplicado por transferencia' : '';
+  document.getElementById('opc-payment-mode').textContent = payMode;
+  // Datos del cliente
+  document.getElementById('opc-client-name').textContent = clientName;
+  document.getElementById('opc-client-phone').textContent = phone;
+  document.getElementById('opc-client-address').textContent = address + ', ' + city;
+  document.getElementById('opc-client-payment').textContent = payLabel;
+  // Notas
+  document.getElementById('opc-sofa-note').style.display = _orderContext.isSofa ? 'block' : 'none';
+  document.getElementById('opc-discount-note').style.display = payment === 'transferencia' ? 'block' : 'none';
+  // Imagen del producto
+  const imgWrapEl = document.getElementById('opc-img-wrap');
+  const imgInner  = document.getElementById('opc-img-inner');
+  const placeholder = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+  const imgSrc = _orderContext.product?.images?.[0];
+  if(imgSrc){
+    await new Promise(async resolve => {
+      const containerW = 520, containerH = 200;
+      function drawImg(tmp){
+        const ir = tmp.naturalWidth / tmp.naturalHeight;
+        const br = containerW / containerH;
+        let dW, dH, dX, dY;
+        if(ir > br){ dW=containerW; dH=Math.round(containerW/ir); dX=0; dY=Math.round((containerH-dH)/2); }
+        else { dH=containerH; dW=Math.round(containerH*ir); dX=Math.round((containerW-dW)/2); dY=0; }
+        const cvs = document.createElement('canvas');
+        cvs.width=containerW; cvs.height=containerH;
+        const ctx=cvs.getContext('2d');
+        ctx.fillStyle='#f0ebe4'; ctx.fillRect(0,0,containerW,containerH);
+        ctx.drawImage(tmp,dX,dY,dW,dH);
+        imgInner.innerHTML=''; imgInner.style.cssText='width:100%;height:100%;';
+        imgInner.appendChild(cvs); imgWrapEl.style.height=containerH+'px';
+      }
+      function useImgFallback(){
+        imgInner.innerHTML='';
+        imgInner.style.cssText='width:100%;height:'+containerH+'px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f0ebe4;';
+        const el=document.createElement('img');
+        el.src=imgSrc;
+        el.style.cssText='max-width:100%;max-height:'+containerH+'px;object-fit:contain;display:block;';
+        imgInner.appendChild(el);
+        imgWrapEl.style.height=containerH+'px';
+        if(el.complete){ resolve(); } else { el.onload=resolve; el.onerror=resolve; }
+      }
+      try {
+        const resp = await fetch(imgSrc);
+        if(!resp.ok && resp.status !== 0) throw new Error('status ' + resp.status);
+        const blob = await resp.blob();
+        if(!blob || blob.size===0) throw new Error('empty blob');
+        const blobUrl = URL.createObjectURL(blob);
+        const tmp = new Image();
+        tmp.onload = () => { drawImg(tmp); URL.revokeObjectURL(blobUrl); resolve(); };
+        tmp.onerror = () => { URL.revokeObjectURL(blobUrl); useImgFallback(); };
+        tmp.src = blobUrl;
+      } catch(e) {
+        useImgFallback();
+      }
+    });
+  } else {
+    imgInner.innerHTML = placeholder;
+  }
+}
+
 async function submitOrder(){
-  const name = document.getElementById('order-name')?.value.trim();
+  const clientName = document.getElementById('order-name')?.value.trim();
   const phone = document.getElementById('order-phone')?.value.trim();
   const address = document.getElementById('order-address')?.value.trim();
   const city = document.getElementById('order-city')?.value.trim();
   const payEl = document.getElementById('order-payment');
   const payment = payEl ? payEl.value : '';
   const payLabels = {tarjeta:'Tarjeta de crédito / débito', efectivo:'Efectivo', transferencia:'Transferencia bancaria'};
+  const payLabel = payLabels[payment] || payment;
 
-  if(!name || !phone || !address || !city || !payment){
-    toast('Completá todos los campos antes de enviar');
+  // Validar campo por campo con mensaje específico
+  const fieldErrors = [
+    { val: clientName, id: 'order-name',    msg: 'Ingresá tu nombre y apellido' },
+    { val: phone,      id: 'order-phone',   msg: 'Ingresá tu número de teléfono' },
+    { val: address,    id: 'order-address', msg: 'Ingresá la dirección de entrega' },
+    { val: city,       id: 'order-city',    msg: 'Ingresá la ciudad' },
+    { val: payment,    id: 'order-payment', msg: 'Seleccioná una forma de pago' },
+  ];
+  const firstError = fieldErrors.find(f => !f.val);
+  if(firstError){
+    toast('⚠️ ' + firstError.msg);
+    const el = document.getElementById(firstError.id);
+    if(el){ el.focus(); el.style.borderColor = '#c0392b'; setTimeout(() => el.style.borderColor = '', 2500); }
     return;
   }
 
@@ -5063,10 +5239,10 @@ async function submitOrder(){
     _orderContext.summary,
     '─────────────────────',
     '*Datos del cliente:*',
-    `👤 ${name}`,
+    `👤 ${clientName}`,
     `📱 ${phone}`,
     `📍 ${address}, ${city}`,
-    `💳 Forma de pago: ${payLabels[payment] || payment}${discountLine}`,
+    `💳 Forma de pago: ${payLabel}${discountLine}`,
     '─────────────────────',
     sofaNote ? sofaNote.trim() : '',
     '_Pedido enviado desde el catálogo digital Moss Home Store._'
@@ -5074,67 +5250,54 @@ async function submitOrder(){
 
   const wappUrl = `https://wa.me/59899062020?text=${encodeURIComponent(msg)}`;
 
-  // Intentar generar PNG de cotización para compartir junto al pedido
   const submitBtn = document.querySelector('#order-modal .btn-primary');
   const origHTML = submitBtn ? submitBtn.innerHTML : '';
   if(submitBtn){ submitBtn.innerHTML = '⏳ Generando...'; submitBtn.disabled = true; }
 
   try {
-    if(_orderContext.product){
-      // Generar canvas con imagen del producto
-      const p = _orderContext.product;
-      const dimLabel = _orderContext.dims || '';
-      const priceStr = _orderContext.price || '';
-      await populateQuoteCard(_orderContext.name, dimLabel, priceStr, p, _orderContext.measure);
-      const card = document.getElementById('quote-png-card');
-      card.style.left = '-9999px';
-      card.style.display = 'block';
-      await document.fonts.ready;
-      await new Promise(r => setTimeout(r, 300));
-      const canvas = await html2canvas(card, {
-        scale: 2, useCORS: true, allowTaint: true,
-        backgroundColor: '#ffffff', width: 520, logging: false,
-      });
-      card.style.display = '';
+    // Generar tarjeta PNG con datos del cliente
+    await populateOrderCard(clientName, phone, address, city, payment, payLabel);
+    const card = document.getElementById('order-png-card');
+    card.style.left = '-9999px';
+    card.style.display = 'block';
+    await document.fonts.ready;
+    await new Promise(r => setTimeout(r, 300));
+    const canvas = await html2canvas(card, {
+      scale: 2, useCORS: true, allowTaint: true,
+      backgroundColor: '#ffffff', width: 520, logging: false,
+    });
+    card.style.display = 'none';
 
-      const safeName = (p.name||'pedido').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
-      const fileName = 'moss-pedido-' + safeName + '.png';
+    const safeName = (_orderContext.name||'pedido').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
+    const fileName = 'moss-pedido-' + safeName + '.png';
 
+    const shareAndOpen = (blob) => {
       if(navigator.share && navigator.canShare){
-        canvas.toBlob(async blob => {
-          const file = new File([blob], fileName, { type: 'image/png' });
-          if(navigator.canShare({ files: [file] })){
-            try {
-              // Compartir imagen primero; luego abrir WhatsApp con texto
-              await navigator.share({ files: [file], title: 'Pedido Moss Home Store' });
-              window.open(wappUrl, '_blank');
-            } catch(e){
-              if(e.name !== 'AbortError'){
-                downloadBlob(blob, fileName);
-                window.open(wappUrl, '_blank');
-              }
-            }
-          } else {
-            downloadBlob(blob, fileName);
-            toast('Imagen descargada — adjuntala en WhatsApp');
-            window.open(wappUrl, '_blank');
-          }
-        }, 'image/png');
-      } else {
-        canvas.toBlob(blob => {
-          downloadBlob(blob, fileName);
-          toast('Imagen descargada — adjuntala en WhatsApp');
-          window.open(wappUrl, '_blank');
-        }, 'image/png');
+        const file = new File([blob], fileName, { type:'image/png' });
+        if(navigator.canShare({ files:[file] })){
+          navigator.share({ files:[file], title:'Pedido Moss Home Store' })
+            .then(() => window.open(wappUrl, '_blank'))
+            .catch(e => { if(e.name!=='AbortError'){ downloadBlob(blob,fileName); window.open(wappUrl,'_blank'); } });
+          return;
+        }
       }
-    } else {
-      // Sin imagen: ir directo a WhatsApp
+      downloadBlob(blob, fileName);
+      toast('Imagen guardada — adjuntala en WhatsApp');
+      window.open(wappUrl, '_blank');
+    };
+
+    try {
+      canvas.toBlob(blob => {
+        if(blob){ shareAndOpen(blob); }
+        else { window.open(wappUrl, '_blank'); }
+      }, 'image/png');
+    } catch(secErr){
+      // Canvas tainted by CORS — open WhatsApp with text only
       window.open(wappUrl, '_blank');
     }
     closeModal('order-modal');
   } catch(e){
-    console.error('Error generando imagen de pedido:', e);
-    // Fallback: abrir WhatsApp aunque falle el canvas
+    console.error('Error generando pedido:', e);
     window.open(wappUrl, '_blank');
     closeModal('order-modal');
   } finally {
