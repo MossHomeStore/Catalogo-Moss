@@ -1315,7 +1315,6 @@ body.modal-open{overflow:hidden;}
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             Enviar por WhatsApp
           </a>
-          <button id="sqm-pedido-btn" style="display:none;width:100%;background:#25D366;color:#fff;border:none;padding:12px;border-radius:8px;font-size:15px;cursor:pointer;margin-top:8px;" onclick="openOrderModal('sofa')">🛒 Hacer pedido</button>
         </div>
       </div>
     </div>
@@ -1705,60 +1704,12 @@ body.modal-open{overflow:hidden;}
           <button id="btn-download-png" style="display:none;"></button>
         </div>
 
-        <div style="margin-top:10px;">
-          <button class="btn-primary" style="width:100%;background:#25D366;color:#fff;border:none;padding:12px;border-radius:8px;font-size:15px;cursor:pointer;" onclick="openOrderModal('wood')">🛒 Hacer pedido</button>
-        </div>
         <div class="flex-end" style="margin-top:10px;">
           <button class="btn-secondary" onclick="closeModal('quote-modal')">Cerrar</button>
           <button class="btn-primary" onclick="copyQuoteTxt()">📋 Copiar</button>
         </div>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- MODAL PEDIDO VÍA WHATSAPP -->
-<div class="modal-overlay" id="order-modal" style="z-index:10000;">
-  <div class="modal" style="max-width:440px;">
-    <button class="modal-close" onclick="closeModal('order-modal')">×</button>
-    <div class="modal-title" style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--walnut);margin-bottom:4px;">🛒 Hacer pedido</div>
-    <div id="order-product-summary" style="font-size:13px;color:#888;margin-bottom:16px;padding:8px 10px;background:#f9f5f0;border-radius:8px;"></div>
-    <div id="order-sofa-note" style="display:none;font-size:13px;color:#745e4d;margin-bottom:12px;padding:8px 10px;background:#fdf3e7;border-radius:8px;border-left:3px solid #c8a97e;">
-      📞 <strong>Nota:</strong> Nos comunicaremos para confirmar el color y tipo de tela del sofá.
-    </div>
-    <div class="form-group" style="margin-bottom:10px;">
-      <label class="form-label">Nombre y apellido *</label>
-      <input class="form-input" id="order-name" type="text" placeholder="Ej: Juan García" required>
-    </div>
-    <div class="form-group" style="margin-bottom:10px;">
-      <label class="form-label">Teléfono *</label>
-      <input class="form-input" id="order-phone" type="tel" placeholder="Ej: 099 123 456" required>
-    </div>
-    <div class="form-group" style="margin-bottom:10px;">
-      <label class="form-label">Dirección de entrega *</label>
-      <input class="form-input" id="order-address" type="text" placeholder="Ej: 18 de Julio 1234 apto 2" required>
-    </div>
-    <div class="form-group" style="margin-bottom:10px;">
-      <label class="form-label">Ciudad *</label>
-      <input class="form-input" id="order-city" type="text" placeholder="Ej: Montevideo" required>
-    </div>
-    <div class="form-group" style="margin-bottom:14px;">
-      <label class="form-label">Forma de pago *</label>
-      <select class="form-input" id="order-payment" onchange="orderPaymentChange()">
-        <option value="">Seleccioná una opción</option>
-        <option value="tarjeta">Tarjeta de crédito / débito</option>
-        <option value="efectivo">Efectivo</option>
-        <option value="transferencia">Transferencia bancaria</option>
-      </select>
-    </div>
-    <div id="order-discount-note" style="display:none;font-size:13px;color:#2a7c3f;margin-bottom:14px;padding:8px 10px;background:#eafbee;border-radius:8px;border-left:3px solid #2a7c3f;">
-      🎉 <strong>¡10% de descuento</strong> pagando por transferencia bancaria!
-    </div>
-    <button class="btn-primary" style="width:100%;background:#25D366;color:#fff;border:none;padding:13px;border-radius:8px;font-size:15px;cursor:pointer;" onclick="submitOrder()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:6px;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-      Enviar pedido por WhatsApp
-    </button>
-    <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="closeModal('order-modal')">Cancelar</button>
   </div>
 </div>
 
@@ -3257,7 +3208,7 @@ function closeModal(id){
 }
 document.querySelectorAll('.modal-overlay').forEach(el=>{el.addEventListener('click',function(e){if(e.target===this)closeModal(this.id);});});
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('show'),2800);}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){['quote-modal','product-modal','order-modal'].forEach(id=>{const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);});closeLightbox();closeLogin();}if(document.getElementById('lightbox').classList.contains('open')){if(e.key==='ArrowLeft')lbNav(-1);if(e.key==='ArrowRight')lbNav(1);}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){['quote-modal','product-modal'].forEach(id=>{if(document.getElementById(id).classList.contains('open'))closeModal(id);});closeLightbox();closeLogin();}if(document.getElementById('lightbox').classList.contains('open')){if(e.key==='ArrowLeft')lbNav(-1);if(e.key==='ArrowRight')lbNav(1);}});
 
 
 // ====== SKU / CODE SYSTEM ======
@@ -3314,21 +3265,25 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
   const imgWrapEl = document.getElementById('qpc-img-wrap');
   const imgInner  = document.getElementById('qpc-img-inner');
   if(p.images && p.images.length){
-    // Draw image onto a canvas — html2canvas renders <canvas> perfectly.
-    // Use fetch+blob to avoid CORS issues with Firebase Storage images.
-    await new Promise(async resolve => {
-      const containerW = 520;
-      const containerH = 220;
-      function drawImgOnCanvas(tmp){
+    // Draw image onto a canvas — html2canvas renders <canvas> perfectly,
+    // while <img> with object-fit is mis-handled and causes stretching.
+    await new Promise(resolve => {
+      const tmp = new Image();
+      tmp.crossOrigin = 'anonymous';
+      tmp.onload = () => {
+        const containerW = 520;  // full card width
+        const containerH = 220;  // img-wrap height
         const imgRatio = tmp.naturalWidth / tmp.naturalHeight;
         const boxRatio = containerW / containerH;
         let drawW, drawH, drawX, drawY;
         if(imgRatio > boxRatio){
+          // landscape: fit width, letterbox top/bottom
           drawW = containerW;
           drawH = Math.round(containerW / imgRatio);
           drawX = 0;
           drawY = Math.round((containerH - drawH) / 2);
         } else {
+          // portrait or square: fit height, pillarbox sides
           drawH = containerH;
           drawW = Math.round(containerH * imgRatio);
           drawX = Math.round((containerW - drawW) / 2);
@@ -3338,32 +3293,23 @@ async function populateQuoteCard(name, dimLabel, priceStr, p, measure){
         cvs.width  = containerW;
         cvs.height = containerH;
         const ctx = cvs.getContext('2d');
+        // Fill background to match card linen color
         ctx.fillStyle = '#f0ebe4';
         ctx.fillRect(0, 0, containerW, containerH);
         ctx.drawImage(tmp, drawX, drawY, drawW, drawH);
         imgInner.innerHTML = '';
         imgInner.style.cssText = 'width:100%;height:100%;';
         imgInner.appendChild(cvs);
+        // Also make img-wrap the exact canvas size so html2canvas doesn't clip
         imgWrapEl.style.height = containerH + 'px';
-      }
-      const placeholder = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
-      try {
-        // Fetch the image as a blob to avoid CORS taint on firebase storage URLs
-        const resp = await fetch(p.images[0]);
-        const blob = await resp.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const tmp = new Image();
-        tmp.onload = () => { drawImgOnCanvas(tmp); URL.revokeObjectURL(blobUrl); resolve(); };
-        tmp.onerror = () => { imgInner.innerHTML = placeholder; URL.revokeObjectURL(blobUrl); resolve(); };
-        tmp.src = blobUrl;
-      } catch(e) {
-        // fallback: try loading directly with crossOrigin
-        const tmp = new Image();
-        tmp.crossOrigin = 'anonymous';
-        tmp.onload = () => { drawImgOnCanvas(tmp); resolve(); };
-        tmp.onerror = () => { imgInner.innerHTML = placeholder; resolve(); };
-        tmp.src = p.images[0];
-      }
+        resolve();
+      };
+      tmp.onerror = () => {
+        imgInner.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        resolve();
+      };
+      tmp.src = p.images[0];
+    });
   } else {
     imgInner.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#bd9479" stroke-width="1" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   }
@@ -4823,7 +4769,6 @@ function openSofaQuote(sofaId){
   document.getElementById('sqm-esq-detalle').innerHTML='';
   document.getElementById('sqm-resultado').style.display='none';
   document.getElementById('sqm-wapp-link').style.display='none';
-  document.getElementById('sqm-pedido-btn').style.display='none';
 
   // Isla: only show if model has isla reference data
   const tieneIsla = sofa.islaLargoRef && sofa.islaPrecioRef && sofa.islaTelaRef;
@@ -4972,175 +4917,8 @@ function sqmCalc(){
   const wl=document.getElementById('sqm-wapp-link');
   wl.href='https://wa.me/?text='+encodeURIComponent(lineas);
   wl.style.display='flex';
-  document.getElementById('sqm-pedido-btn').style.display='block';
 }
 
-
-// ─── PEDIDO VÍA WHATSAPP ───────────────────────────────────────────────────
-let _orderContext = {}; // almacena datos del producto al abrir el modal
-
-function openOrderModal(type){
-  _orderContext = {type};
-
-  if(type === 'wood'){
-    const name = document.getElementById('qr-product')?.textContent || '';
-    const dims = document.getElementById('qr-dims')?.textContent || '';
-    const price = document.getElementById('qr-price')?.textContent || '';
-    _orderContext.name = name;
-    _orderContext.dims = dims;
-    _orderContext.price = price;
-    _orderContext.summary = `${name}${dims ? ' — '+dims : ''}\nPrecio de lista: ${price}`;
-    _orderContext.isSofa = false;
-    _orderContext.product = quoteProduct || null;
-    _orderContext.measure = window._lastSelectedMeasure || null;
-  } else {
-    const modelName = document.getElementById('sqm-titulo')?.textContent || 'Sofá';
-    const tSel = document.getElementById('sqm-tela');
-    const telaName = tSel ? tSel.options[tSel.selectedIndex]?.text || '' : '';
-    const esEsq = document.getElementById('sqm-esquinero')?.checked;
-    let dims = '';
-    if(esEsq){
-      const ladoA = document.getElementById('sqm-lado-a')?.value || '';
-      const ladoB = document.getElementById('sqm-lado-b')?.value || '';
-      dims = ladoA && ladoB ? `Rinconero ${ladoA}×${ladoB} cm` : '';
-    } else {
-      const largo = document.getElementById('sqm-largo')?.value || '';
-      dims = largo ? `Largo: ${largo} cm` : '';
-    }
-    const price = document.getElementById('sqm-r-lista')?.textContent || '';
-    _orderContext.name = modelName;
-    _orderContext.dims = [telaName, dims].filter(Boolean).join(' · ');
-    _orderContext.price = price;
-    _orderContext.summary = [modelName, telaName, dims, price ? 'Precio de lista: '+price : ''].filter(Boolean).join('\n');
-    _orderContext.isSofa = true;
-    // Capturar imagen actual del sofá
-    const sofaImgSrc = document.getElementById('sqm-img-main-src')?.src || '';
-    _orderContext.product = sofaImgSrc ? {name: modelName, images:[sofaImgSrc], cat:'Sofás', sku:'', desc:telaName+(dims?' · '+dims:'')} : null;
-    _orderContext.measure = null;
-  }
-
-  document.getElementById('order-product-summary').textContent = _orderContext.summary;
-  document.getElementById('order-sofa-note').style.display = _orderContext.isSofa ? 'block' : 'none';
-
-  ['order-name','order-phone','order-address','order-city'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.value = '';
-  });
-  const pay = document.getElementById('order-payment');
-  if(pay) pay.value = '';
-  document.getElementById('order-discount-note').style.display = 'none';
-
-  document.getElementById('order-modal').classList.add('open');
-}
-
-function orderPaymentChange(){
-  const val = document.getElementById('order-payment')?.value;
-  document.getElementById('order-discount-note').style.display = val === 'transferencia' ? 'block' : 'none';
-}
-
-async function submitOrder(){
-  const name = document.getElementById('order-name')?.value.trim();
-  const phone = document.getElementById('order-phone')?.value.trim();
-  const address = document.getElementById('order-address')?.value.trim();
-  const city = document.getElementById('order-city')?.value.trim();
-  const payEl = document.getElementById('order-payment');
-  const payment = payEl ? payEl.value : '';
-  const payLabels = {tarjeta:'Tarjeta de crédito / débito', efectivo:'Efectivo', transferencia:'Transferencia bancaria'};
-
-  if(!name || !phone || !address || !city || !payment){
-    toast('Completá todos los campos antes de enviar');
-    return;
-  }
-
-  const discountLine = payment === 'transferencia' ? '\n🎉 *10% de descuento* por transferencia bancaria' : '';
-  const sofaNote = _orderContext.isSofa ? '\n\n📞 _Nos comunicaremos para confirmar el color y tipo de tela._' : '';
-
-  const msg = [
-    '*🛒 PEDIDO — Moss Home Store*',
-    '─────────────────────',
-    '*Producto:*',
-    _orderContext.summary,
-    '─────────────────────',
-    '*Datos del cliente:*',
-    `👤 ${name}`,
-    `📱 ${phone}`,
-    `📍 ${address}, ${city}`,
-    `💳 Forma de pago: ${payLabels[payment] || payment}${discountLine}`,
-    '─────────────────────',
-    sofaNote ? sofaNote.trim() : '',
-    '_Pedido enviado desde el catálogo digital Moss Home Store._'
-  ].filter(l => l !== '').join('\n');
-
-  const wappUrl = `https://wa.me/59899062020?text=${encodeURIComponent(msg)}`;
-
-  // Intentar generar PNG de cotización para compartir junto al pedido
-  const submitBtn = document.querySelector('#order-modal .btn-primary');
-  const origHTML = submitBtn ? submitBtn.innerHTML : '';
-  if(submitBtn){ submitBtn.innerHTML = '⏳ Generando...'; submitBtn.disabled = true; }
-
-  try {
-    if(_orderContext.product){
-      // Generar canvas con imagen del producto
-      const p = _orderContext.product;
-      const dimLabel = _orderContext.dims || '';
-      const priceStr = _orderContext.price || '';
-      await populateQuoteCard(_orderContext.name, dimLabel, priceStr, p, _orderContext.measure);
-      const card = document.getElementById('quote-png-card');
-      card.style.left = '-9999px';
-      card.style.display = 'block';
-      await document.fonts.ready;
-      await new Promise(r => setTimeout(r, 300));
-      const canvas = await html2canvas(card, {
-        scale: 2, useCORS: true, allowTaint: true,
-        backgroundColor: '#ffffff', width: 520, logging: false,
-      });
-      card.style.display = '';
-
-      const safeName = (p.name||'pedido').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
-      const fileName = 'moss-pedido-' + safeName + '.png';
-
-      if(navigator.share && navigator.canShare){
-        canvas.toBlob(async blob => {
-          const file = new File([blob], fileName, { type: 'image/png' });
-          if(navigator.canShare({ files: [file] })){
-            try {
-              // Compartir imagen primero; luego abrir WhatsApp con texto
-              await navigator.share({ files: [file], title: 'Pedido Moss Home Store' });
-              window.open(wappUrl, '_blank');
-            } catch(e){
-              if(e.name !== 'AbortError'){
-                downloadBlob(blob, fileName);
-                window.open(wappUrl, '_blank');
-              }
-            }
-          } else {
-            downloadBlob(blob, fileName);
-            toast('Imagen descargada — adjuntala en WhatsApp');
-            window.open(wappUrl, '_blank');
-          }
-        }, 'image/png');
-      } else {
-        canvas.toBlob(blob => {
-          downloadBlob(blob, fileName);
-          toast('Imagen descargada — adjuntala en WhatsApp');
-          window.open(wappUrl, '_blank');
-        }, 'image/png');
-      }
-    } else {
-      // Sin imagen: ir directo a WhatsApp
-      window.open(wappUrl, '_blank');
-    }
-    closeModal('order-modal');
-  } catch(e){
-    console.error('Error generando imagen de pedido:', e);
-    // Fallback: abrir WhatsApp aunque falle el canvas
-    window.open(wappUrl, '_blank');
-    closeModal('order-modal');
-  } finally {
-    if(submitBtn){ submitBtn.innerHTML = origHTML; submitBtn.disabled = false; }
-  }
-}
-// ───────────────────────────────────────────────────────────────────────────
 
 async function syncSofasToProducts(){
   const catSel=document.getElementById('sofa-sync-cat');
