@@ -773,6 +773,15 @@ body.modal-open{overflow:hidden;}
   }
   #quote-modal.modal-overlay{ align-items:flex-start!important; padding:0; padding-top:52px; }
   #quote-modal .modal{ margin:0!important; width:100%; border-radius:0 0 14px 14px; max-height:calc(100vh - 52px); overflow:hidden; }
+  /* Keep the Medidas/Ingresar medidas tabs visible while scrolling long measure lists */
+  .qm-right .tab-switch{
+    position:sticky; top:0; z-index:5;
+    background:var(--white);
+    margin-left:-14px; margin-right:-14px; margin-top:-12px;
+    padding:12px 14px 0;
+    width:calc(100% + 28px);
+    box-shadow:0 4px 6px -4px rgba(0,0,0,.08);
+  }
 }
 @media(max-width:420px){
   .qm-img-wrap{ min-height:180px; max-height:32vh; }
@@ -1667,7 +1676,7 @@ body.modal-open{overflow:hidden;}
 
         <div class="tab-switch">
           <button class="tab-btn active" data-tab="preset" onclick="switchQuoteTab('preset')">Medidas</button>
-          <button class="tab-btn" data-tab="custom" onclick="switchQuoteTab('custom')">Personalizada</button>
+          <button class="tab-btn" data-tab="custom" onclick="switchQuoteTab('custom')">Ingresar medidas</button>
         </div>
         <div id="qt-preset">
           <div class="preset-grid" id="qm-presets"></div>
@@ -5106,22 +5115,27 @@ function sqmCalc(){
   const ladoAv=parseFloat(document.getElementById('sqm-esq-a').value)||0;
   const ladoBv=parseFloat(document.getElementById('sqm-esq-b').value)||0;
   const largoV=parseFloat(document.getElementById('sqm-largo').value)||0;
+  const sqDims = esEsqCheck
+    ? 'Rinconero '+ladoAv+'×'+ladoBv+' cm'
+    : (largoV ? 'Largo: '+largoV+' cm' : '');
+  const sqSummary=[
+    sofa.nombre+(esEsqCheck?' (Esquinero)':''),
+    tela.nombre,
+    sqDims,
+    conIsla&&islaMed?('Isla: '+islaMed+'×'+islaMed+' cm'):'',
+    'Precio de lista: $'+Math.round(precioLista).toLocaleString('es-UY')
+  ].filter(l=>l!=='').join('\n');
   const lineas=[
-    'Cotizacion Moss Home Store - Sofas',
+    '*🛒 COTIZACIÓN — Moss Home Store*',
     '─────────────────────',
-    'Modelo: '+sofa.nombre+(esEsqCheck?' (Esquinero)':''),
-    esEsqCheck?'Dimensiones: '+ladoAv+' × '+ladoBv+' cm':'Largo: '+largoV+' cm',
-    esEsqCheck?'Módulo 1: '+ladoAv+' cm / Módulo 2: '+(ladoBv-90)+' cm':'',
-    'Tela: '+tela.nombre+' ('+anchoTela+'m)',
-    'Metros totales: '+metrosTela.toFixed(2)+' m',
-    conIsla&&islaMed?'Isla: '+islaMed+'×'+islaMed+' cm':'',
-    'Precio de lista: $'+Math.round(precioLista).toLocaleString('es-UY'),
+    '*Producto:*',
+    sqSummary,
     '─────────────────────',
-    'Aceptamos tarjetas de credito',
+    'Aceptamos tarjetas de crédito',
     '10% dto pagando en efectivo o transferencia',
     '─────────────────────',
     'Avda. Rivera 2157, Montevideo - @moss.uy',
-    'Precio estimado. Sujeto a confirmacion.'
+    '_Cotización enviada desde el catálogo digital Moss Home Store. Precio estimado, sujeto a confirmación._'
   ].filter(l=>l!=='').join('\n');
   // Guardamos los datos calculados para generar la tarjeta PNG al enviar
   const sofaImgSrc = document.getElementById('sqm-img-main-src')?.src || null;
