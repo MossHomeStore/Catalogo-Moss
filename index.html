@@ -436,6 +436,20 @@ body.modal-open{overflow:hidden;}
     max-height:92vh;
     overflow-y:auto;
   }
+  /* El botón cerrar es position:absolute dentro del propio modal scrolleable,
+     así que se iba con el scroll — lo fijamos en pantalla en mobile */
+  #sofa-quote-modal .modal-close{
+    position:fixed;
+    top:10px; right:10px;
+    width:36px; height:36px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--espresso);
+    color:var(--white);
+    border-radius:50%;
+    font-size:20px;
+    z-index:700;
+    box-shadow:0 2px 8px rgba(0,0,0,.35);
+  }
   /* Editor sofá */
   #sofa-product-modal .modal{
     max-height:88vh;
@@ -3583,6 +3597,11 @@ async function sendQuoteViaWhatsApp(){
     if(canUseNativeShare){
       const file = new File([blob], fileName, { type: 'image/png' });
       if(navigator.canShare({ files: [file] })){
+        // Restauramos el botón ANTES de abrir la hoja nativa de compartir: si el usuario
+        // elige WhatsApp y no vuelve a esta pestaña, el "finally" de abajo nunca llega
+        // a ejecutarse y el botón quedaría trabado en "Generando...".
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
         try {
           // Se incluye el texto para que, si eligen WhatsApp, vaya junto con la imagen
           await navigator.share({ files: [file], title: 'Cotización ' + p.name, text: wappMsg });
@@ -5197,6 +5216,11 @@ async function sendSofaQuoteViaWhatsApp(){
     if(canUseNativeShare){
       const file = new File([blob], fileName, { type: 'image/png' });
       if(navigator.canShare({ files: [file] })){
+        // Restauramos el botón ANTES de abrir la hoja nativa de compartir: si el usuario
+        // elige WhatsApp y no vuelve a esta pestaña, el "finally" de abajo nunca llega
+        // a ejecutarse y el botón quedaría trabado en "Generando...".
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
         try {
           await navigator.share({ files: [file], title: 'Cotización ' + data.sofa.nombre, text: data.wappMsg });
           return;
