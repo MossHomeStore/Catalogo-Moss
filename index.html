@@ -2715,6 +2715,18 @@ function renderAdmin(){
       '</tr>';
   }).join('')}</tbody></table>`;}
 
+function stripUndefinedDeep(value){
+  if(Array.isArray(value)) return value.map(stripUndefinedDeep);
+  if(value && typeof value === 'object'){
+    const out = {};
+    Object.keys(value).forEach(k => {
+      if(value[k] === undefined) return; // se omite en vez de guardar null por error
+      out[k] = stripUndefinedDeep(value[k]);
+    });
+    return out;
+  }
+  return value;
+}
 async function publishToWoo(id){
   const p = products.find(x => String(x.id) === String(id));
   if(!p) return;
@@ -2741,10 +2753,15 @@ async function publishToWoo(id){
     const result = await window._publishToWooFn(payload);
     const data = result.data;
     // Guardamos el id de WooCommerce y los ids de cada variación para futuras actualizaciones
-    p.wooId = data.wooId;
-    p.wooUrl = data.wooUrl;
-    p.measures = p.measures.map((m,i) => Object.assign({}, m, { wooVariationId: data.variationIds[i] || m.wooVariationId }));
-    await saveProduct_fb(p);
+    p.wooId = data.wooId || null;
+    p.wooUrl = data.wooUrl || null;
+    p.measures = p.measures.map((m,i) => Object.assign({}, m, {
+      wooVariationId: (data.variationIds && data.variationIds[i]) || m.wooVariationId || null
+    }));
+    // Firestore no acepta "undefined" en ningún campo — limpiamos antes de guardar,
+    // por si el producto ya traía algún campo sin definir de antes.
+    const pClean = stripUndefinedDeep(p);
+    await saveProduct_fb(pClean);
     renderAdmin();
     toast('Publicado en moss.uy correctamente');
   } catch(e){
