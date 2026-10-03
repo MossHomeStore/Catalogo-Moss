@@ -21,6 +21,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/fireba
 import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAadedBeWg1hd-UJWThgNzKWdnTqRbSBKw",
@@ -37,6 +38,8 @@ const db = getFirestore(app);
 // Expose DB functions to global scope so existing code can use them
 window._db = db;
 window._fbReady = true;
+const fns = getFunctions(app);
+window._publishToWooFn = httpsCallable(fns, 'publishProductToWoo');
 window._collection = collection;
 window._getDocs = getDocs;
 window._doc = doc;
@@ -2705,10 +2708,51 @@ function renderAdmin(){
       '<td style="white-space:nowrap;">'+
         '<button class="btn-sm btn-sm-edit" onclick="openProductModal(\''+p.id+'\')">Editar</button>'+
         '<button class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="openLabelModal('+p.id+')">🏷️</button>'+
+        '<button class="btn-sm" id="woo-btn-'+p.id+'" style="background:#7f54b3;color:#fff;" onclick="publishToWoo(\''+p.id+'\')">'+(p.wooId?'🔄 Actualizar en moss.uy':'🌐 Publicar en moss.uy')+'</button>'+
+        (p.wooUrl?'<a href="'+p.wooUrl+'" target="_blank" class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);text-decoration:none;">Ver</a>':'')+
         '<button class="btn-sm btn-sm-del" onclick="deleteProduct('+p.id+')">Eliminar</button>'+
       '</td>'+
       '</tr>';
   }).join('')}</tbody></table>`;}
+
+async function publishToWoo(id){
+  const p = products.find(x => String(x.id) === String(id));
+  if(!p) return;
+  if(!p.measures || !p.measures.length){ toast('Agregá al menos una medida con precio antes de publicar'); return; }
+  const btn = document.getElementById('woo-btn-'+id);
+  const origText = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = '⏳ Publicando...'; btn.disabled = true; }
+  try {
+    const payload = {
+      id: String(p.id),
+      wooId: p.wooId || null,
+      name: p.name,
+      sku: p.sku || '',
+      desc: p.desc || '',
+      cat: p.cat || '',
+      images: p.images || [],
+      measures: (p.measures||[]).map(m => ({
+        name: m.name,
+        w: m.w, h: m.h, d: m.d,
+        price: calcPrice(p, m),
+        wooVariationId: m.wooVariationId || null
+      }))
+    };
+    const result = await window._publishToWooFn(payload);
+    const data = result.data;
+    // Guardamos el id de WooCommerce y los ids de cada variación para futuras actualizaciones
+    p.wooId = data.wooId;
+    p.wooUrl = data.wooUrl;
+    p.measures = p.measures.map((m,i) => Object.assign({}, m, { wooVariationId: data.variationIds[i] || m.wooVariationId }));
+    await saveProduct_fb(p);
+    renderAdmin();
+    toast('Publicado en moss.uy correctamente');
+  } catch(e){
+    console.error('[Woo] publish error:', e);
+    toast('Error al publicar en moss.uy: ' + (e.message||e));
+    if(btn){ btn.textContent = origText; btn.disabled = false; }
+  }
+}
 function deleteProduct(id){if(!confirm('¿Eliminar este producto?'))return;products=products.filter(p=>p.id!=id);deleteProduct_fb(id).then(()=>pingSync()).catch(e=>console.warn(e));renderGrid();renderAdmin();renderCats();toast('Producto eliminado');}
 
 function openProductModal(id=null){
