@@ -2792,6 +2792,9 @@ function wooBatchCandidates(mode){
     (mode === 'all' || !p.wooId));
 }
 
+function wooEsc(t){
+  return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function wooBatchBarHtml(list){
   const b = window._wooBatch;
   const withMeasures = list.filter(p => p && Array.isArray(p.measures) && p.measures.length);
@@ -2801,7 +2804,7 @@ function wooBatchBarHtml(list){
   if(b.running){
     const pct = b.total ? Math.round(b.done / b.total * 100) : 0;
     return '<div id="woo-batch-bar" style="'+box+'"><b>🌐 Publicando en moss.uy…</b> '+b.done+' de '+b.total+' ('+pct+'%)'+
-      (b.current ? ' — <span style="opacity:.8;">'+b.current+'</span>' : '')+
+      (b.current ? ' — <span style="opacity:.8;">'+wooEsc(b.current)+'</span>' : '')+
       '<span style="opacity:.7;">No cierres esta pestaña.</span></div>';
   }
   const btn = 'class="btn-sm" style="background:#7f54b3;color:#fff;"';
@@ -2813,7 +2816,7 @@ function wooBatchBarHtml(list){
     const ok = b.total - b.errors.length;
     html += '<div style="flex-basis:100%;"><b>Último lote:</b> '+ok+' de '+b.total+' correctos'+
       (b.errors.length ? ' · <span style="color:#b3261e;">'+b.errors.length+' con error:</span><ul style="margin:6px 0 0 18px;">'+
-        b.errors.map(e=>'<li><b>'+e.name+'</b>: '+e.msg+'</li>').join('')+'</ul>' : ' ✅')+'</div>';
+        b.errors.map(e=>'<li><b>'+wooEsc(e.name)+'</b>: '+wooEsc(e.msg)+'</li>').join('')+'</ul>' : ' ✅')+'</div>';
   }
   return html + '</div>';
 }
@@ -2834,16 +2837,30 @@ async function publishBatchToWoo(mode){
   const warn = e => { e.preventDefault(); e.returnValue = ''; };
   window.addEventListener('beforeunload', warn);
   try {
-    for(const p of targets){
+    let blockedInRow = 0;
+    for(let i=0;i<targets.length;i++){
+      const p = targets[i];
       b.current = p.name || String(p.id);
       renderAdmin();
       try {
         await publishOneToWoo(p);
+        blockedInRow = 0;
       } catch(e){
         console.error('[Woo] lote — error en', p.name, e);
-        b.errors.push({ name: p.name || String(p.id), msg: String(e.message || e).slice(0, 200) });
+        const m = String(e.message || e);
+        b.errors.push({ name: p.name || String(p.id), msg: m.slice(0, 400) });
+        blockedInRow = /sgcaptcha|SiteGround/i.test(m) ? blockedInRow + 1 : 0;
       }
       b.done++;
+      // Si el hosting bloquea 2 seguidos, no insistimos (empeora la reputación de la IP)
+      if(blockedInRow >= 2){
+        const rest = targets.slice(i+1);
+        rest.forEach(r => b.errors.push({ name: r.name || String(r.id), msg: 'No se intentó: el lote se detuvo porque SiteGround está bloqueando los pedidos.' }));
+        b.done += rest.length;
+        break;
+      }
+      // Pausa entre productos para no parecer tráfico automático
+      await new Promise(r => setTimeout(r, 3000));
     }
   } finally {
     window.removeEventListener('beforeunload', warn);
