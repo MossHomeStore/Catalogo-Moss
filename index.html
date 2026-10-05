@@ -2752,6 +2752,8 @@ async function publishToWoo(id){
     };
     const result = await window._publishToWooFn(payload);
     const data = result.data;
+    console.log('[Woo] respuesta de la función:', JSON.stringify(data));
+    if(!data || !data.wooId) throw new Error('La función no devolvió el ID del producto en WooCommerce');
     // Guardamos el id de WooCommerce y los ids de cada variación para futuras actualizaciones
     p.wooId = data.wooId || null;
     p.wooUrl = data.wooUrl || null;
@@ -3029,7 +3031,15 @@ function saveProduct(){
   // Step 4: update local array
   if(editingId != null){
     const idx = products.findIndex(x => String(x.id) === String(editingId));
-    if(idx > -1){ products[idx] = p; } else { products.push(p); }
+    // Conservar el vínculo con WooCommerce: este objeto se reconstruye desde el
+    // formulario y sin esto cada edición borraría wooId/wooUrl (y el próximo
+    // "Publicar" crearía un producto duplicado en moss.uy).
+    if(idx > -1){
+      const old = products[idx];
+      if(old.wooId) p.wooId = old.wooId;
+      if(old.wooUrl) p.wooUrl = old.wooUrl;
+      products[idx] = p;
+    } else { products.push(p); }
   } else {
     products.push(p);
   }
