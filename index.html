@@ -2686,9 +2686,10 @@ function renderAdmin(){
     return matchName&&matchSku&&matchCat;
   });
   var hasFilter=qName||qSku||catF!=='all';
+  window._adminList=list;
   var countEl2=document.getElementById('admin-filter-count');
   if(countEl2) countEl2.textContent=hasFilter?list.length+' de '+products.length+' productos':'';
-  if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-title">'+(hasFilter?'Sin resultados':'Sin productos cargados')+'</div></div>';return;}el.innerHTML=`<table class="admin-table"><thead><tr>
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-title">'+(hasFilter?'Sin resultados':'Sin productos cargados')+'</div></div>';return;}el.innerHTML=wooBatchBarHtml(list)+`<table class="admin-table"><thead><tr>
     <th style="width:56px;">Foto</th><th>Código</th><th>Producto</th><th>Categoría</th><th>Variantes</th><th>Precio base</th><th>Acciones</th>
   </tr></thead><tbody>${list.map(p=>{
     const basePrice=calcPrice(p,p.measures&&p.measures[0]);
@@ -2727,14 +2728,9 @@ function stripUndefinedDeep(value){
   }
   return value;
 }
-async function publishToWoo(id){
-  const p = products.find(x => String(x.id) === String(id));
-  if(!p) return;
-  if(!p.measures || !p.measures.length){ toast('Agregá al menos una medida con precio antes de publicar'); return; }
-  const btn = document.getElementById('woo-btn-'+id);
-  const origText = btn ? btn.textContent : '';
-  if(btn){ btn.textContent = '⏳ Publicando...'; btn.disabled = true; }
-  try {
+// Publica/actualiza UN producto en moss.uy y guarda el vínculo en Firebase.
+// Lanza error si algo falla (lo usan el botón individual y la publicación por lotes).
+async function publishOneToWoo(p){
     const payload = {
       id: String(p.id),
       wooId: p.wooId || null,
@@ -2764,12 +2760,96 @@ async function publishToWoo(id){
     // por si el producto ya traía algún campo sin definir de antes.
     const pClean = stripUndefinedDeep(p);
     await saveProduct_fb(pClean);
+}
+
+async function publishToWoo(id){
+  const p = products.find(x => String(x.id) === String(id));
+  if(!p) return;
+  if(!p.measures || !p.measures.length){ toast('Agregá al menos una medida con precio antes de publicar'); return; }
+  if(window._wooBatch && window._wooBatch.running){ toast('Hay una publicación por lotes en curso'); return; }
+  const btn = document.getElementById('woo-btn-'+id);
+  const origText = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = '⏳ Publicando...'; btn.disabled = true; }
+  try {
+    await publishOneToWoo(p);
     renderAdmin();
     toast('Publicado en moss.uy correctamente');
   } catch(e){
     console.error('[Woo] publish error:', e);
     toast('Error al publicar en moss.uy: ' + (e.message||e));
     if(btn){ btn.textContent = origText; btn.disabled = false; }
+  }
+}
+
+// ── Publicación por lotes ──────────────────────────────────────────────
+// mode: 'pending' = solo los que nunca se publicaron · 'all' = todos (crea o actualiza)
+// Trabaja sobre la lista actualmente filtrada en el panel admin.
+window._wooBatch = { running:false, done:0, total:0, current:'', errors:[], finished:false, mode:'' };
+
+function wooBatchCandidates(mode){
+  const list = window._adminList || products;
+  return list.filter(p => p && Array.isArray(p.measures) && p.measures.length &&
+    (mode === 'all' || !p.wooId));
+}
+
+function wooBatchBarHtml(list){
+  const b = window._wooBatch;
+  const withMeasures = list.filter(p => p && Array.isArray(p.measures) && p.measures.length);
+  const pending = withMeasures.filter(p => !p.wooId).length;
+  const published = withMeasures.length - pending;
+  const box = 'display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--linen-dark);font-size:13px;';
+  if(b.running){
+    const pct = b.total ? Math.round(b.done / b.total * 100) : 0;
+    return '<div id="woo-batch-bar" style="'+box+'"><b>🌐 Publicando en moss.uy…</b> '+b.done+' de '+b.total+' ('+pct+'%)'+
+      (b.current ? ' — <span style="opacity:.8;">'+b.current+'</span>' : '')+
+      '<span style="opacity:.7;">No cierres esta pestaña.</span></div>';
+  }
+  const btn = 'class="btn-sm" style="background:#7f54b3;color:#fff;"';
+  let html = '<div id="woo-batch-bar" style="'+box+'"><b>moss.uy</b>'+
+    '<button '+btn+' onclick="publishBatchToWoo(\'pending\')"'+(pending?'':' disabled')+'>🌐 Publicar pendientes ('+pending+')</button>'+
+    '<button '+btn+' onclick="publishBatchToWoo(\'all\')"'+(published?'':' disabled')+'>🔄 Actualizar todos los publicados ('+published+')</button>'+
+    '<span style="opacity:.7;">Solo los productos de la lista actual (según filtros).</span>';
+  if(b.finished){
+    const ok = b.total - b.errors.length;
+    html += '<div style="flex-basis:100%;"><b>Último lote:</b> '+ok+' de '+b.total+' correctos'+
+      (b.errors.length ? ' · <span style="color:#b3261e;">'+b.errors.length+' con error:</span><ul style="margin:6px 0 0 18px;">'+
+        b.errors.map(e=>'<li><b>'+e.name+'</b>: '+e.msg+'</li>').join('')+'</ul>' : ' ✅')+'</div>';
+  }
+  return html + '</div>';
+}
+
+async function publishBatchToWoo(mode){
+  const b = window._wooBatch;
+  if(b.running) return;
+  const targets = wooBatchCandidates(mode);
+  if(!targets.length){ toast('No hay productos para publicar con ese criterio'); return; }
+  const msg = mode === 'all'
+    ? 'Se van a actualizar '+targets.length+' producto(s) en moss.uy, pisando precio, descripción, fotos y medidas con lo del catálogo. ¿Continuar?'
+    : 'Se van a publicar '+targets.length+' producto(s) nuevos en moss.uy. ¿Continuar?';
+  if(!confirm(msg)) return;
+
+  Object.assign(b, { running:true, done:0, total:targets.length, current:'', errors:[], finished:false, mode:mode });
+  renderAdmin();
+  // Si la pestaña se cierra a mitad, el navegador avisa
+  const warn = e => { e.preventDefault(); e.returnValue = ''; };
+  window.addEventListener('beforeunload', warn);
+  try {
+    for(const p of targets){
+      b.current = p.name || String(p.id);
+      renderAdmin();
+      try {
+        await publishOneToWoo(p);
+      } catch(e){
+        console.error('[Woo] lote — error en', p.name, e);
+        b.errors.push({ name: p.name || String(p.id), msg: String(e.message || e).slice(0, 200) });
+      }
+      b.done++;
+    }
+  } finally {
+    window.removeEventListener('beforeunload', warn);
+    b.running = false; b.finished = true; b.current = '';
+    renderAdmin();
+    toast(b.errors.length ? 'Lote terminado con '+b.errors.length+' error(es)' : 'Lote publicado correctamente en moss.uy');
   }
 }
 function deleteProduct(id){if(!confirm('¿Eliminar este producto?'))return;products=products.filter(p=>p.id!=id);deleteProduct_fb(id).then(()=>pingSync()).catch(e=>console.warn(e));renderGrid();renderAdmin();renderCats();toast('Producto eliminado');}
