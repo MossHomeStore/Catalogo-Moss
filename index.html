@@ -2709,8 +2709,9 @@ function renderAdmin(){
       '<td style="white-space:nowrap;">'+
         '<button class="btn-sm btn-sm-edit" onclick="openProductModal(\''+p.id+'\')">Editar</button>'+
         '<button class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="openLabelModal('+p.id+')">🏷️</button>'+
-        '<button class="btn-sm" id="woo-btn-'+p.id+'" style="background:#7f54b3;color:#fff;" onclick="publishToWoo(\''+p.id+'\')">'+(p.wooId?'🔄 Actualizar en moss.uy':'🌐 Publicar en moss.uy')+'</button>'+
+        '<button class="btn-sm" id="woo-btn-'+p.id+'" style="background:#7f54b3;color:#fff;" onclick="publishToWoo(\''+p.id+'\')">'+((p.wooId||p.wooExport)?'🔄 Actualizar en moss.uy':'🌐 Publicar en moss.uy')+'</button>'+
         (p.wooUrl?'<a href="'+p.wooUrl+'" target="_blank" class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);text-decoration:none;">Ver</a>':'')+
+        wooStatusHtml(p)+
         '<button class="btn-sm btn-sm-del" onclick="deleteProduct('+p.id+')">Eliminar</button>'+
       '</td>'+
       '</tr>';
@@ -2728,9 +2729,43 @@ function stripUndefinedDeep(value){
   }
   return value;
 }
+// Modo de publicación:
+//  'plugin' → el catálogo deja el producto "enviado" en Firebase y el plugin Moss Catalog Sync
+//             (instalado en WordPress) lo trae y lo crea/actualiza. No necesita llamar a moss.uy.
+//  'direct' → la Cloud Function llama a la API de WooCommerce (la bloquea el firewall de SiteGround).
+window.WOO_MODE = 'plugin';
+
+async function queueWooSync(p){
+  // Las fotos tienen que ser URLs de Storage (no base64) para que el plugin pueda descargarlas.
+  const imgs = await uploadImagesToStorage(p.id, p.images || []);
+  p.images = imgs;
+  const sku = String(p.sku || '').trim();
+  if(!sku) throw new Error('El producto necesita SKU para sincronizarse con moss.uy');
+  const measures = (p.measures || []).map(m => ({
+    name: m.name || 'Medida', w: m.w || 0, h: m.h || 0, d: m.d || 0,
+    price: Math.round(calcPrice(p, m) || 0)
+  }));
+  const seen = {};
+  for(const m of measures){
+    const k = wooOptionLabel(m).toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if(seen[k]) throw new Error('Hay medidas repetidas ("' + wooOptionLabel(m) + '"): cambiá el nombre o las dimensiones de una');
+    seen[k] = 1;
+  }
+  p.wooExport = {
+    at: Date.now(),
+    payload: {
+      name: p.name || '', sku: sku, desc: p.desc || '', cat: p.cat || '',
+      images: imgs.filter(u => typeof u === 'string' && u.startsWith('http')),
+      measures: measures
+    }
+  };
+  await saveProduct_fb(stripUndefinedDeep(p));
+}
+
 // Publica/actualiza UN producto en moss.uy y guarda el vínculo en Firebase.
 // Lanza error si algo falla (lo usan el botón individual y la publicación por lotes).
 async function publishOneToWoo(p){
+    if(window.WOO_MODE === 'plugin') return queueWooSync(p);
     const payload = {
       id: String(p.id),
       wooId: p.wooId || null,
@@ -2773,7 +2808,9 @@ async function publishToWoo(id){
   try {
     await publishOneToWoo(p);
     renderAdmin();
-    toast('Publicado en moss.uy correctamente');
+    toast(window.WOO_MODE === 'plugin'
+      ? 'Enviado a moss.uy: se publica en la próxima sincronización (hasta 10 min)'
+      : 'Publicado en moss.uy correctamente');
   } catch(e){
     console.error('[Woo] publish error:', e);
     toast('Error al publicar en moss.uy: ' + (e.message||e));
@@ -2789,16 +2826,66 @@ window._wooBatch = { running:false, done:0, total:0, current:'', errors:[], fini
 function wooBatchCandidates(mode){
   const list = window._adminList || products;
   return list.filter(p => p && Array.isArray(p.measures) && p.measures.length &&
-    (mode === 'all' || !p.wooId));
+    (mode === 'all' || !(p.wooId || p.wooExport)));
 }
 
+// ── Exportar CSV para el importador de WooCommerce ───────────────────────
+// Misma lógica de etiquetas que la Cloud Function (optionLabel), para que luego
+// "Actualizar en moss.uy" reconozca estos productos/variaciones y no los duplique.
+function wooOptionLabel(m){
+  const d = [m.w, m.h, m.d].filter(Boolean).join('×');
+  const base = String(m.name || 'Medida').trim();
+  return (d ? base + ' ' + d + 'cm' : base).replace(/\|/g, '/').replace(/,/g, ' ');
+}
+function wooCsvCell(v){
+  return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+}
+function exportWooCsv(){
+  const list = (window._adminList || products).filter(p => p && Array.isArray(p.measures) && p.measures.length);
+  const withSku = list.filter(p => p.sku && String(p.sku).trim());
+  const skipped = list.length - withSku.length;
+  if(!withSku.length){ toast('No hay productos con SKU y medidas para exportar'); return; }
+  const header = ['Type','SKU','Name','Published','Visibility in catalog','Description','In stock?','Categories','Images','Parent','Position',
+    'Attribute 1 name','Attribute 1 value(s)','Attribute 1 visible','Attribute 1 global','Regular price','Length (cm)','Width (cm)','Height (cm)'];
+  const rows = [header];
+  withSku.forEach(p => {
+    const sku = String(p.sku).trim();
+    const imgs = (p.images || []).filter(x => typeof x === 'string' && x.startsWith('http')).join(', ');
+    const labels = p.measures.map(wooOptionLabel);
+    rows.push(['variable', sku, p.name || '', 1, 'visible', p.desc || '', 1, p.cat || '', imgs, '', 0,
+      'Medida', labels.join(', '), 1, 0, '', '', '', '']);
+    p.measures.forEach((m, i) => {
+      rows.push(['variation', '', '', 1, 'visible', '', 1, '', '', sku, i,
+        'Medida', labels[i], '', 0, Math.round(calcPrice(p, m) || 0), m.d || '', m.w || '', m.h || '']);
+    });
+  });
+  const csv = rows.map(r => r.map(wooCsvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'moss-productos-woocommerce-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast(withSku.length + ' producto(s) exportados' + (skipped ? ' · ' + skipped + ' sin SKU omitidos' : ''));
+}
+
+function wooStatusHtml(p){
+  if(window.WOO_MODE !== 'plugin' || !p.wooExport) return '';
+  const st = 'display:block;font-size:11px;margin-top:4px;';
+  const synced = p.wooSyncedAt && Number(p.wooSyncedAt) >= Number(p.wooExport.at);
+  if(p.wooSyncError && !synced) return '<span style="'+st+'color:#b3261e;">⚠ '+wooEsc(p.wooSyncError)+'</span>';
+  if(!synced) return '<span style="'+st+'opacity:.75;">⏳ Pendiente de sincronizar</span>';
+  const d = new Date(Number(p.wooSyncedAt));
+  return '<span style="'+st+'color:#2e7d32;">✓ En moss.uy ('+d.toLocaleDateString('es-UY')+' '+d.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})+')</span>';
+}
 function wooEsc(t){
   return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function wooBatchBarHtml(list){
   const b = window._wooBatch;
   const withMeasures = list.filter(p => p && Array.isArray(p.measures) && p.measures.length);
-  const pending = withMeasures.filter(p => !p.wooId).length;
+  const pending = withMeasures.filter(p => !(p.wooId || p.wooExport)).length;
   const published = withMeasures.length - pending;
   const box = 'display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--linen-dark);font-size:13px;';
   if(b.running){
@@ -2811,6 +2898,8 @@ function wooBatchBarHtml(list){
   let html = '<div id="woo-batch-bar" style="'+box+'"><b>moss.uy</b>'+
     '<button '+btn+' onclick="publishBatchToWoo(\'pending\')"'+(pending?'':' disabled')+'>🌐 Publicar pendientes ('+pending+')</button>'+
     '<button '+btn+' onclick="publishBatchToWoo(\'all\')"'+(published?'':' disabled')+'>🔄 Actualizar todos los publicados ('+published+')</button>'+
+    '<button class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="exportWooCsv()">📄 Exportar CSV para WooCommerce ('+withMeasures.length+')</button>'+
+    '<button class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="reloadProducts()">↻ Actualizar estado</button>'+
     '<span style="opacity:.7;">Solo los productos de la lista actual (según filtros).</span>';
   if(b.finished){
     const ok = b.total - b.errors.length;
@@ -2860,13 +2949,13 @@ async function publishBatchToWoo(mode){
         break;
       }
       // Pausa entre productos para no parecer tráfico automático
-      await new Promise(r => setTimeout(r, 3000));
+      if(window.WOO_MODE !== 'plugin') await new Promise(r => setTimeout(r, 3000));
     }
   } finally {
     window.removeEventListener('beforeunload', warn);
     b.running = false; b.finished = true; b.current = '';
     renderAdmin();
-    toast(b.errors.length ? 'Lote terminado con '+b.errors.length+' error(es)' : 'Lote publicado correctamente en moss.uy');
+    toast(b.errors.length ? 'Lote terminado con '+b.errors.length+' error(es)' : (window.WOO_MODE === 'plugin' ? 'Lote enviado a moss.uy: se publica en la próxima sincronización' : 'Lote publicado correctamente en moss.uy'));
   }
 }
 function deleteProduct(id){if(!confirm('¿Eliminar este producto?'))return;products=products.filter(p=>p.id!=id);deleteProduct_fb(id).then(()=>pingSync()).catch(e=>console.warn(e));renderGrid();renderAdmin();renderCats();toast('Producto eliminado');}
@@ -3135,6 +3224,9 @@ function saveProduct(){
       const old = products[idx];
       if(old.wooId) p.wooId = old.wooId;
       if(old.wooUrl) p.wooUrl = old.wooUrl;
+      if(old.wooExport) p.wooExport = old.wooExport;
+      if(old.wooSyncedAt) p.wooSyncedAt = old.wooSyncedAt;
+      if(old.wooSyncError) p.wooSyncError = old.wooSyncError;
       products[idx] = p;
     } else { products.push(p); }
   } else {
