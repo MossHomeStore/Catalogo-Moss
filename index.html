@@ -2178,14 +2178,14 @@ function eliminarMadera(id){
 function populateMaderaSelect(){
   const sel = document.getElementById('f-madera');
   if(!sel) return;
-  const maderas = getMaderas();
+  const maderas = getMaderas().slice().sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre),'es'));
   // All maderas including base, only name, no percentage
   sel.innerHTML = maderas.map(m=>'<option value="'+m.id+'">'+m.nombre+'</option>').join('');
 }
 
 // Build madera options for quote modal (all maderas, name only)
 function maderaOptions(selectedId){
-  return getMaderas().map(m=>
+  return getMaderas().slice().sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre),'es')).map(m=>
     '<option value="'+m.id+'"'+(m.id===selectedId?' selected':'')+'>'+m.nombre+'</option>'
   ).join('');
 }
@@ -2674,7 +2674,7 @@ function initLazyImages(){
 }
 function renderAdmin(){
   var cf=document.getElementById('admin-cat-filter');
-  if(cf){var cv=cf.value;cf.innerHTML='<option value="all">Todas las categorías</option>'+categories.map(function(c){return '<option value="'+c+'"'+(cv===c?' selected':'')+'>'+c+'</option>';}).join('');}
+  if(cf){var cv=cf.value;cf.innerHTML='<option value="all">Todas las categorías</option>'+[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(function(c){return '<option value="'+c+'"'+(cv===c?' selected':'')+'>'+c+'</option>';}).join('');}
   var el=document.getElementById('admin-list');
   var qName=((document.getElementById('admin-q-name')&&document.getElementById('admin-q-name').value)||'').toLowerCase().trim();
   var qSku=((document.getElementById('admin-q-sku')&&document.getElementById('admin-q-sku').value)||'').toLowerCase().trim();
@@ -3476,7 +3476,7 @@ function renderSettings(){document.getElementById('cfg-factor').value=cfg.factor
   const cfgSort=document.getElementById('cfg-sort');if(cfgSort)cfgSort.value=ds;
   const ss=document.getElementById('sort-select');if(ss)ss.value=ds;
   const sofaCatSel=document.getElementById('sofa-sync-cat');
-  if(sofaCatSel){const prev=sofaCatSel.value;sofaCatSel.innerHTML=categories.map(c=>`<option value="${c}">${c}</option>`).join('');if(prev&&categories.includes(prev))sofaCatSel.value=prev;}document.getElementById('cats-manage').innerHTML=categories.map((c,i)=>`<div class="cat-manage-item"><input class="cat-manage-input" value="${c.replace(/"/g,'&quot;')}" onblur="renameCat(${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur();}"><button class="btn-del-cat" onclick="removeCat(${i})">×</button></div>`).join('');}
+  if(sofaCatSel){const prev=sofaCatSel.value;sofaCatSel.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join('');if(prev&&categories.includes(prev))sofaCatSel.value=prev;}document.getElementById('cats-manage').innerHTML=categories.map((c,i)=>`<div class="cat-manage-item"><input class="cat-manage-input" value="${c.replace(/"/g,'&quot;')}" onblur="renameCat(${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur();}"><button class="btn-del-cat" onclick="removeCat(${i})">×</button></div>`).join('');}
 
 // ========== IMAGE MIGRATION TO FIREBASE STORAGE ==========
 async function migrateImagesToStorage(){
@@ -4946,7 +4946,7 @@ function impRenderGroups(){
 }
 
 function impRenderGroupCard(g){
-  const catOpts=categories.concat(IMP_CATS.filter(c=>!categories.includes(c))).map(c=>'<option value="'+c+'"'+(g.cat===c?' selected':'')+'>'+c+'</option>').join('');
+  const catOpts=categories.concat(IMP_CATS.filter(c=>!categories.includes(c))).sort((a,b)=>a.localeCompare(b,'es')).map(c=>'<option value="'+c+'"'+(g.cat===c?' selected':'')+'>'+c+'</option>').join('');
   const photoItems=g.photos.map((src,pi)=>'<div class="imp-photo-item"><img src="'+src+'" width="64" height="64" style="object-fit:cover;display:block;"><button class="imp-photo-del" onclick="impRemovePhoto('+g.id+','+pi+')">×</button></div>').join('');
   const excCls=g.excluded?'excluded':'';
   const thumb=g.photos.length?'<img class="imp-group-thumb" src="'+g.photos[0]+'" alt="">':'<div class="imp-group-thumb" style="display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--sand);">🪑</div>';
