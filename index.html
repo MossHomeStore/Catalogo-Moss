@@ -2754,7 +2754,7 @@ async function queueWooSync(p){
   p.wooExport = {
     at: Date.now(),
     payload: {
-      name: p.name || '', sku: sku, desc: p.desc || '', cat: p.cat || '',
+      name: p.name || '', sku: sku, desc: p.desc || '', cat: p.cat || '', publish: !!window._wooPublishDrafts,
       images: imgs.filter(u => typeof u === 'string' && u.startsWith('http')),
       measures: measures
     }
@@ -2899,6 +2899,7 @@ function wooBatchBarHtml(list){
     '<button '+btn+' onclick="publishBatchToWoo(\'pending\')"'+(pending?'':' disabled')+'>🌐 Publicar pendientes ('+pending+')</button>'+
     '<button '+btn+' onclick="publishBatchToWoo(\'all\')"'+(published?'':' disabled')+'>🔄 Actualizar todos los publicados ('+published+')</button>'+
     '<button class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="exportWooCsv()">📄 Exportar CSV para WooCommerce ('+withMeasures.length+')</button>'+
+    '<button '+btn+' onclick="dgOpen()">✍️ Regenerar descripciones</button>'+
     '<button class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="reloadProducts()">↻ Actualizar estado</button>'+
     '<span style="opacity:.7;">Solo los productos de la lista actual (según filtros).</span>';
   if(b.finished){
@@ -5990,6 +5991,246 @@ async function syncSofasToProductsQuick(){
 
   toast('✓ '+sfSofas.length+' sofás sincronizados');
   await loadFromFirebase();
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Regenerar descripciones (SEO) con Claude API → revisión → guardado → cola de moss.uy
+// ═════════════════════════════════════════════════════════════════════════════
+window._dg = { items: [], running: false, sel: {}, kind: {}, sending: false };
+
+function dgNorm(t){ return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function dgKind(p){
+  const c = dgNorm(p.cat);
+  if(/iluminaci|lampara|deco|accesorio/.test(c)) return 'reventa';
+  if(/mueble|mesa|dormitorio|aparador|rack|bibliotec|respaldo|silla|banqueta|sofa|sillon|butaca|cama|comoda|cristalero|exterior|comedor/.test(c)) return 'fabricado';
+  return 'revisar';
+}
+function dgKindOf(p){ return window._dg.kind[p.id] || dgKind(p); }
+function dgWords(t){ return String(t||'').trim().split(/\s+/).filter(Boolean).length; }
+function dgSleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function dgOpen(){
+  let o = document.getElementById('dg-overlay');
+  if(!o){
+    o = document.createElement('div');
+    o.id = 'dg-overlay';
+    o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow:auto;padding:20px;';
+    document.body.appendChild(o);
+  }
+  o.style.display = 'block';
+  dgRender();
+}
+function dgClose(){
+  if(window._dg.running && !confirm('Hay una generación en curso. ¿Cerrar igual? Se detendrá.')) return;
+  window._dg.running = false;
+  const o = document.getElementById('dg-overlay'); if(o) o.style.display = 'none';
+  if(typeof renderAdmin === 'function') renderAdmin();
+}
+function dgSorted(){
+  return products.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'es'));
+}
+function dgCats(){
+  return Array.from(new Set(products.map(p=>p.cat).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+}
+function dgRender(){
+  const o = document.getElementById('dg-overlay'); if(!o) return;
+  const D = window._dg;
+  const catSel = (document.getElementById('dg-cat')||{}).value || 'all';
+  const q = dgNorm((document.getElementById('dg-q')||{}).value || '');
+  const list = dgSorted().filter(p => (catSel==='all' || p.cat===catSel) && (!q || dgNorm(p.name).includes(q)));
+  const nSel = products.filter(p=>D.sel[p.id]).length;
+  const inp = 'padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;';
+  const b1 = 'class="btn-sm" style="background:#7f54b3;color:#fff;"';
+  const b2 = 'class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);"';
+  let h = '<div style="background:var(--cream,#fff);color:var(--espresso,#222);max-width:1200px;margin:0 auto;border-radius:12px;padding:18px;">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;"><h2 style="margin:0;font-size:18px;">✍️ Regenerar descripciones (SEO)</h2><button '+b2+' onclick="dgClose()">✕ Cerrar</button></div>';
+
+  // 1. Selección
+  h += '<div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;"><b>1. Selección</b> — <span id="dg-count">'+nSel+' seleccionado'+(nSel===1?'':'s')+'</span>';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center;">';
+  h += '<select id="dg-cat" style="'+inp+'" onchange="dgRender()"><option value="all">Todas las categorías</option>'+dgCats().map(c=>'<option value="'+wooEsc(c)+'"'+(catSel===c?' selected':'')+'>'+wooEsc(c)+'</option>').join('')+'</select>';
+  h += '<input id="dg-q" placeholder="Buscar por nombre" value="'+wooEsc((document.getElementById('dg-q')||{}).value||'')+'" style="'+inp+'" oninput="dgRender();document.getElementById(\'dg-q\').focus();">';
+  h += '<button '+b2+' onclick="dgSelVisible(true)">Seleccionar visibles ('+list.length+')</button>';
+  h += '<button '+b2+' onclick="dgSelAll()">Seleccionar todos ('+products.length+')</button>';
+  h += '<button '+b2+' onclick="dgSelNone()">Ninguno</button></div>';
+  h += '<div style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:6px;font-size:13px;">';
+  list.forEach(p=>{
+    const k = dgKindOf(p);
+    h += '<div style="display:flex;gap:8px;align-items:center;padding:4px 8px;border-bottom:1px solid var(--border);">'+
+      '<input type="checkbox" '+(D.sel[p.id]?'checked ':'')+'onchange="dgToggle(\''+String(p.id).replace(/'/g,"\\'")+'\',this.checked)">'+
+      '<span style="flex:1;">'+wooEsc(p.name)+' <span style="opacity:.6;">· '+wooEsc(p.cat||'sin categoría')+'</span></span>'+
+      '<select style="'+inp+'font-size:12px;" onchange="dgSetKind(\''+String(p.id).replace(/'/g,"\\'")+'\',this.value)">'+
+        ['fabricado','reventa','revisar'].map(x=>'<option value="'+x+'"'+(k===x?' selected':'')+'>'+(x==='revisar'?'⚠ revisar a mano':x)+'</option>').join('')+'</select></div>';
+  });
+  h += '</div><div style="font-size:12px;opacity:.7;margin-top:4px;">Los «revisar a mano» no se generan hasta que elijas fabricado o reventa.</div></div>';
+
+  // 2. Generación
+  h += '<div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;"><b>2. Generación</b><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center;">';
+  h += '<input id="dg-key" type="password" placeholder="API key de Anthropic (sk-ant-…)" value="'+wooEsc(impApiKey||'')+'" style="'+inp+'width:280px;" oninput="impApiKey=this.value.trim()">';
+  h += D.running ? '<button '+b2+' onclick="window._dg.running=false">⏹ Detener</button>' : '<button '+b1+' onclick="dgGenerate()">✨ Generar descripciones</button>';
+  h += '<span id="dg-prog" style="font-size:13px;"></span></div></div>';
+
+  // 3. Revisión
+  h += '<div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;"><b>3. Revisión</b> — nada se guarda sin tu aprobación';
+  if(!D.items.length){ h += '<div style="opacity:.7;margin-top:6px;">Todavía no generaste nada.</div>'; }
+  else {
+    const nOk = D.items.filter(i=>i.status==='ok').length;
+    h += ' · <button '+b2+' onclick="dgApproveAll()">Aprobar todas las generadas ('+nOk+')</button>';
+    h += '<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;"><tr><th style="text-align:left;width:14%;">Producto</th><th style="text-align:left;width:31%;">Actual</th><th style="text-align:left;width:37%;">Nueva (editable)</th><th style="width:18%;">Acción</th></tr>';
+    D.items.forEach((it,ix)=>{
+      const p = products.find(x=>String(x.id)===String(it.id)); if(!p) return;
+      const wc = dgWords(it.nu);
+      const warn = it.status==='ok' && (wc<70||wc>120) ? ' <span style="color:#b3261e;">⚠ '+wc+' palabras</span>' : (it.status==='ok'||it.status==='approved' ? ' <span style="opacity:.6;">'+wc+' palabras</span>' : '');
+      let right = '';
+      if(it.status==='err') right = '<span style="color:#b3261e;">'+wooEsc(it.err)+'</span>';
+      else if(it.status==='skip') right = '<span style="opacity:.7;">Omitido (revisar a mano)</span>';
+      else if(it.status==='approved') right = '<span style="color:#2e7d32;">✓ Guardada</span><br><button '+b2+' onclick="dgRevert('+ix+')">↩ Revertir</button>';
+      else if(it.status==='discarded') right = '<span style="opacity:.7;">Descartada</span>';
+      else if(it.status==='ok') right = '<button '+b1+' onclick="dgApprove('+ix+')">✓ Aprobar</button> <button '+b2+' onclick="dgDiscard('+ix+')">✗</button>';
+      else right = '<span style="opacity:.7;">Pendiente…</span>';
+      h += '<tr style="vertical-align:top;border-top:1px solid var(--border);"><td style="padding:6px 6px 6px 0;"><b>'+wooEsc(p.name)+'</b><br><span style="opacity:.6;">'+it.kind+'</span></td>'+
+        '<td style="padding:6px;white-space:pre-wrap;opacity:.8;">'+wooEsc(it.status==='approved'?(p.descripcionAnterior||''):it.cur)+'</td>'+
+        '<td style="padding:6px;">'+(it.status==='ok'?'<textarea style="width:100%;min-height:130px;'+'font-size:13px;" oninput="window._dg.items['+ix+'].nu=this.value">'+wooEsc(it.nu)+'</textarea>'+warn : '<div style="white-space:pre-wrap;">'+wooEsc(it.nu||'')+'</div>'+warn)+'</td>'+
+        '<td style="padding:6px;text-align:center;">'+right+'</td></tr>';
+    });
+    h += '</table>';
+  }
+  h += '</div>';
+
+  // 4. Envío
+  const approved = D.items.filter(i=>i.status==='approved');
+  h += '<div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;"><b>4. Envío a moss.uy</b> — '+approved.length+' aprobada'+(approved.length===1?'':'s')+' en esta sesión';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center;">';
+  h += '<label style="font-size:13px;"><input type="checkbox" id="dg-pub" '+(window._wooPublishDrafts?'checked ':'')+'onchange="window._wooPublishDrafts=this.checked"> Publicar los que estén en borrador (solo si todas sus medidas tienen precio)</label>';
+  h += D.sending ? '' : '<button '+b1+' onclick="dgSend()"'+(approved.length?'':' disabled')+'>🌐 Enviar aprobados a la cola</button>';
+  h += '<span id="dg-sendprog" style="font-size:13px;"></span></div>';
+  h += '<div style="font-size:12px;opacity:.7;margin-top:4px;">Se envían en tandas de 5. El plugin los procesa cada 10 minutos o con «Sincronizar ahora» en WooCommerce. Requiere la versión 1.1.0 del plugin para publicar borradores.</div></div>';
+  h += '</div>';
+  o.innerHTML = h;
+}
+function dgToggle(id,v){ window._dg.sel[id]=v; const c=document.getElementById('dg-count'); const n=products.filter(p=>window._dg.sel[p.id]).length; if(c)c.textContent=n+' seleccionado'+(n===1?'':'s'); }
+function dgSelVisible(v){
+  const cat=(document.getElementById('dg-cat')||{}).value||'all'; const q=dgNorm((document.getElementById('dg-q')||{}).value||'');
+  products.filter(p=>(cat==='all'||p.cat===cat)&&(!q||dgNorm(p.name).includes(q))).forEach(p=>window._dg.sel[p.id]=v); dgRender();
+}
+function dgSelAll(){ products.forEach(p=>window._dg.sel[p.id]=true); dgRender(); }
+function dgSelNone(){ window._dg.sel={}; dgRender(); }
+function dgSetKind(id,k){ window._dg.kind[id]=k; }
+
+const DG_SYSTEM = 'Sos redactor de fichas de producto para la tienda online de Moss Home Store (Montevideo, Uruguay). Devolvé únicamente el texto de la descripción, sin títulos ni comillas.';
+function dgPrompt(p, kind, recent){
+  const maderaObj = getMaderas().find(m=>m.id===p.madera);
+  const medidas = (p.measures||[]).map(m=>{ const d=[m.w,m.h,m.d].filter(Boolean).join('×'); return (m.name&&m.name!=='Medida'?m.name+' ':'')+(d?d+' cm':''); }).filter(Boolean);
+  const ficha = [
+    'Nombre del modelo: '+p.name,
+    'Categoría: '+(p.cat||'(sin dato)'),
+    'Madera / material: '+(maderaObj?maderaObj.nombre:'(sin dato)'),
+    p.tela?('Tela: '+p.tela):'', p.terminacion?('Terminación: '+p.terminacion):'',
+    'Medidas disponibles: '+(medidas.length?medidas.join(' | '):'(sin dato)'),
+    'Descripción actual (solo referencia): '+(p.desc||'(vacía)')
+  ].filter(Boolean).join('\n');
+  return 'Redactá la descripción de producto para la tienda online de Moss Home Store (Montevideo, Uruguay), en español rioplatense (voseo), tono cálido y claro, entre 70 y 120 palabras, sin emojis ni exageraciones.\n'+
+  'Estructura:\n1. Primera frase: tipo de mueble + nombre del modelo + material principal (ej.: "Mesa de comedor Kyoto en madera maciza de guatambú y álamo.").\n'+
+  '2. Una o dos frases sobre diseño y estilo (nórdico, industrial, rústico, etc.) y en qué ambiente queda bien.\n3. Medidas disponibles: listar las variantes.\n'+
+  (kind==='fabricado'
+    ? '4. Es FABRICADO: incluí "Fabricado a medida en Uruguay: podés ajustar medidas, madera y terminación. Plazo de entrega: 30 días."\n'
+    : '4. Es REVENTA: no menciones fabricación a medida ni plazo.\n')+
+  '5. Cierre: "Visitanos en Av. Rivera 2157, Montevideo, o consultanos por WhatsApp."\n'+
+  'Reglas:\n- Usá con naturalidad el tipo de mueble ("mesa de comedor", "aparador", "rack de TV", "respaldo de cama") y "madera maciza" cuando corresponda.\n'+
+  '- No inventes datos que no estén en la ficha; si falta la madera o la terminación, omitila.\n- La descripción debe ser única; no repitas textos de otros productos.\n'+
+  (recent.length?'- Evitá repetir las frases de estas descripciones ya escritas:\n'+recent.map(t=>'  · '+t.slice(0,160)).join('\n')+'\n':'')+
+  '- Devolvé solo el texto de la descripción, sin títulos ni comillas.\n\nFICHA DEL PRODUCTO:\n'+ficha;
+}
+async function dgCall(prompt){
+  let lastErr;
+  for(let a=0;a<3;a++){
+    try{
+      const resp = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':impApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:700,system:DG_SYSTEM,messages:[{role:'user',content:prompt}]})
+      });
+      if(!resp.ok){ const e=await resp.json().catch(()=>({})); const err=new Error((e.error&&e.error.message)||('HTTP '+resp.status)); err.status=resp.status; throw err; }
+      const data = await resp.json();
+      return data.content.map(c=>c.text||'').join('').trim().replace(/^["“]+|["”]+$/g,'');
+    }catch(e){
+      lastErr = e;
+      if(e.status===401||e.status===403) throw e; // la key no sirve: reintentar no ayuda
+      await dgSleep(2000*(a+1));
+    }
+  }
+  throw lastErr;
+}
+async function dgGenerate(){
+  const D = window._dg;
+  if(!String(impApiKey||'').startsWith('sk-ant-')){ toast('Pegá tu API key de Anthropic (sk-ant-…)'); return; }
+  const chosen = dgSorted().filter(p=>D.sel[p.id]);
+  if(!chosen.length){ toast('Elegí al menos un producto'); return; }
+  D.items = chosen.map(p=>({ id:p.id, kind:dgKindOf(p), cur:p.desc||'', nu:'', status: dgKindOf(p)==='revisar'?'skip':'pending' }));
+  D.running = true; dgRender();
+  const recent = [];
+  let done = 0; const total = D.items.filter(i=>i.status==='pending').length;
+  for(const it of D.items){
+    if(!D.running) break;
+    if(it.status!=='pending') continue;
+    const p = products.find(x=>String(x.id)===String(it.id));
+    const pr = document.getElementById('dg-prog'); if(pr) pr.textContent = 'Generando '+(done+1)+' de '+total+': '+p.name;
+    try{
+      it.nu = await dgCall(dgPrompt(p, it.kind, recent.slice(-4)));
+      it.status = 'ok'; recent.push(it.nu);
+    }catch(e){
+      it.status = 'err'; it.err = e.message || String(e);
+      if(e.status===401||e.status===403){ D.running=false; toast('API key inválida'); }
+    }
+    done++;
+    dgRender();
+    const pr2 = document.getElementById('dg-prog'); if(pr2) pr2.textContent = done+' de '+total;
+    await dgSleep(1200);
+  }
+  D.running = false; dgRender();
+  const pr3 = document.getElementById('dg-prog'); if(pr3) pr3.textContent = 'Listo: '+D.items.filter(i=>i.status==='ok').length+' para revisar, '+D.items.filter(i=>i.status==='err').length+' con error.';
+}
+async function dgApprove(ix){
+  const it = window._dg.items[ix]; if(!it || it.status!=='ok') return;
+  const txt = String(it.nu||'').trim(); if(!txt){ toast('La descripción está vacía'); return; }
+  const p = products.find(x=>String(x.id)===String(it.id)); if(!p) return;
+  const prev = { desc:p.desc, ant:p.descripcionAnterior };
+  p.descripcionAnterior = p.desc || '';
+  p.desc = txt;
+  try{ await saveProduct_fb(stripUndefinedDeep(p)); it.status='approved'; }
+  catch(e){ p.desc=prev.desc; p.descripcionAnterior=prev.ant; it.status='err'; it.err='No se pudo guardar: '+(e.message||e); }
+  dgRender();
+}
+async function dgApproveAll(){
+  const items = window._dg.items;
+  for(let i=0;i<items.length;i++){ if(items[i].status==='ok') await dgApprove(i); }
+}
+function dgDiscard(ix){ window._dg.items[ix].status='discarded'; dgRender(); }
+async function dgRevert(ix){
+  const it = window._dg.items[ix]; const p = products.find(x=>String(x.id)===String(it.id)); if(!p) return;
+  p.desc = p.descripcionAnterior || '';
+  try{ await saveProduct_fb(stripUndefinedDeep(p)); it.status='discarded'; toast('Descripción anterior restaurada'); }
+  catch(e){ toast('No se pudo revertir: '+(e.message||e)); }
+  dgRender();
+}
+async function dgSend(){
+  const D = window._dg; const list = D.items.filter(i=>i.status==='approved');
+  if(!list.length) return;
+  D.sending = true; dgRender();
+  let ok = 0; const errs = [];
+  for(let i=0;i<list.length;i+=5){
+    const tanda = list.slice(i,i+5);
+    for(const it of tanda){
+      const p = products.find(x=>String(x.id)===String(it.id));
+      const sp = document.getElementById('dg-sendprog'); if(sp) sp.textContent = 'Enviando '+(ok+errs.length+1)+' de '+list.length+': '+p.name;
+      try{ await queueWooSync(p); ok++; }catch(e){ errs.push(p.name+': '+(e.message||e)); if(/permission|unauthorized/i.test(e.message||'')){ i=list.length; break; } }
+    }
+    await dgSleep(300);
+  }
+  D.sending = false; dgRender();
+  const sp = document.getElementById('dg-sendprog');
+  if(sp) sp.innerHTML = ok+' de '+list.length+' en cola.'+(errs.length?' <span style="color:#b3261e;">Errores:<br>'+errs.map(wooEsc).join('<br>')+'</span>':'')+' Ahora sincronizá desde WooCommerce o esperá al cron.';
 }
 
 </script>
