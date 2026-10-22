@@ -2192,9 +2192,8 @@ function maderaOptions(selectedId){
 
 // Resize and compress image to fit Firestore 1MB document limit
 // Max width/height: 800px, JPEG quality: 0.7 → ~100-200KB per image
-// Versión de alta resolución para la web (moss.uy): la liviana de 800px sigue siendo la del catálogo.
+// Versión original para la web (moss.uy): la liviana de 800px sigue siendo la del catálogo.
 window._hiRes = window._hiRes || new Map();
-const WEB_IMG_MAX = 2000, WEB_IMG_QUALITY = 0.88;
 async function compressImage(dataUrl, maxSize=800, quality=0.72){
   return new Promise((resolve) => {
     if(!dataUrl || !dataUrl.startsWith('data:')){ resolve(dataUrl); return; }
@@ -2220,11 +2219,9 @@ async function compressImage(dataUrl, maxSize=800, quality=0.72){
       canvas.width = outW; canvas.height = outH;
       canvas.getContext('2d').drawImage(img, srcX, srcY, srcW, srcH, 0, 0, outW, outH);
       const compressed = canvas.toDataURL('image/jpeg', quality);
-      if(maxSize === 800 && srcW > 800){
-        const wOut = Math.min(srcW, WEB_IMG_MAX), hOut = Math.round(srcH * wOut / srcW);
-        const c2 = document.createElement('canvas'); c2.width = wOut; c2.height = hOut;
-        c2.getContext('2d').drawImage(img, srcX, srcY, srcW, srcH, 0, 0, wOut, hOut);
-        window._hiRes.set(compressed, c2.toDataURL('image/jpeg', WEB_IMG_QUALITY));
+      // Para la web se conserva el archivo ORIGINAL, sin recortar ni recomprimir.
+      if(maxSize === 800 && dataUrl.length > compressed.length){
+        window._hiRes.set(compressed, dataUrl);
       }
       const origKB = Math.round(dataUrl.length * 0.75 / 1024);
       const newKB  = Math.round(compressed.length * 0.75 / 1024);
@@ -2267,7 +2264,8 @@ async function uploadImagesToStorage(productId, images){
       console.log('[Storage] Uploaded img', i, '→', path);
       if(hi){
         try{
-          const wref = window._storageRef(window._storage, 'products/' + String(productId) + '/web_' + i + '_' + Date.now() + '.jpg');
+          const mm = /^data:image\/(png|webp|gif|jpeg|jpg)/i.exec(hi); const ext = mm ? (mm[1].toLowerCase()==='jpeg' ? 'jpg' : mm[1].toLowerCase()) : 'jpg';
+          const wref = window._storageRef(window._storage, 'products/' + String(productId) + '/web_' + i + '_' + Date.now() + '.' + ext);
           await window._uploadString(wref, hi, 'data_url');
           urls.web.push({ s:url, w: await window._getDownloadURL(wref) });
           window._hiRes.delete(img);
