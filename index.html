@@ -2192,6 +2192,9 @@ function maderaOptions(selectedId){
 
 // Resize and compress image to fit Firestore 1MB document limit
 // Max width/height: 800px, JPEG quality: 0.7 → ~100-200KB per image
+// Versión de alta resolución para la web (moss.uy): la liviana de 800px sigue siendo la del catálogo.
+window._hiRes = window._hiRes || new Map();
+const WEB_IMG_MAX = 2000, WEB_IMG_QUALITY = 0.88;
 async function compressImage(dataUrl, maxSize=800, quality=0.72){
   return new Promise((resolve) => {
     if(!dataUrl || !dataUrl.startsWith('data:')){ resolve(dataUrl); return; }
@@ -2217,6 +2220,12 @@ async function compressImage(dataUrl, maxSize=800, quality=0.72){
       canvas.width = outW; canvas.height = outH;
       canvas.getContext('2d').drawImage(img, srcX, srcY, srcW, srcH, 0, 0, outW, outH);
       const compressed = canvas.toDataURL('image/jpeg', quality);
+      if(maxSize === 800 && srcW > 800){
+        const wOut = Math.min(srcW, WEB_IMG_MAX), hOut = Math.round(srcH * wOut / srcW);
+        const c2 = document.createElement('canvas'); c2.width = wOut; c2.height = hOut;
+        c2.getContext('2d').drawImage(img, srcX, srcY, srcW, srcH, 0, 0, wOut, hOut);
+        window._hiRes.set(compressed, c2.toDataURL('image/jpeg', WEB_IMG_QUALITY));
+      }
       const origKB = Math.round(dataUrl.length * 0.75 / 1024);
       const newKB  = Math.round(compressed.length * 0.75 / 1024);
       console.log('[Img] '+origKB+'KB → '+newKB+'KB ('+outW+'×'+outH+' 4:3)');
@@ -2227,10 +2236,18 @@ async function compressImage(dataUrl, maxSize=800, quality=0.72){
   });
 }
 
+// Une los pares nuevos con los ya guardados y descarta los de fotos que ya no están.
+function mergeImagesWeb(p, urls){
+  const map = {};
+  (p.imagesWeb || []).concat((urls && urls.web) || []).forEach(x => { if(x && x.s && x.w) map[x.s] = x.w; });
+  p.imagesWeb = (urls || []).filter(u => typeof u === 'string' && map[u]).map(u => ({ s:u, w:map[u] }));
+}
+
 // Compress all images before saving
 async function uploadImagesToStorage(productId, images){
   if(!images || !images.length) return [];
   const urls = [];
+  urls.web = [];   // pares {s: URL liviana, w: URL alta resolución} de las fotos nuevas
   for(let i = 0; i < images.length; i++){
     const img = images[i];
     // Already a URL (previously uploaded to Storage) — keep as-is
@@ -2240,13 +2257,23 @@ async function uploadImagesToStorage(productId, images){
     }
     // base64 — compress then upload to Firebase Storage
     try {
-      const compressed = await compressImage(img);
+      const hi = window._hiRes.get(img);
+      const compressed = hi ? img : await compressImage(img);   // si ya es la liviana, no se vuelve a comprimir
       const path = 'products/' + String(productId) + '/img_' + i + '_' + Date.now() + '.jpg';
       const ref = window._storageRef(window._storage, path);
       await window._uploadString(ref, compressed, 'data_url');
       const url = await window._getDownloadURL(ref);
       urls.push(url);
       console.log('[Storage] Uploaded img', i, '→', path);
+      if(hi){
+        try{
+          const wref = window._storageRef(window._storage, 'products/' + String(productId) + '/web_' + i + '_' + Date.now() + '.jpg');
+          await window._uploadString(wref, hi, 'data_url');
+          urls.web.push({ s:url, w: await window._getDownloadURL(wref) });
+          window._hiRes.delete(img);
+          console.log('[Storage] Uploaded web version of img', i);
+        }catch(e2){ console.warn('[Storage] No se pudo subir la versión web de la foto', i, e2); }
+      }
     } catch(e){
       console.error('[Storage] Upload failed for img', i, e);
       // Fallback: keep compressed base64 if upload fails
@@ -2275,13 +2302,14 @@ async function saveProduct_fb(p){
     // Upload images to Storage first, replace base64 with URLs
     const imageUrls = await uploadImagesToStorage(p.id, p.images||[]);
     const pToSave = Object.assign({}, p, { images: imageUrls });
+    mergeImagesWeb(pToSave, imageUrls);
 
     const docRef = window._doc(window._db, 'moss_products', String(p.id));
     await window._setDoc(docRef, pToSave);
 
     // Update local product with Storage URLs
     const idx = products.findIndex(x => String(x.id) === String(p.id));
-    if(idx > -1) products[idx].images = imageUrls;
+    if(idx > -1){ products[idx].images = imageUrls; products[idx].imagesWeb = pToSave.imagesWeb; }
 
     console.log('[FB] Product saved:', p.name, '| images:', imageUrls.length);
     showSyncStatus('saved');
@@ -2738,6 +2766,7 @@ window.WOO_MODE = 'plugin';
 async function queueWooSync(p){
   // Las fotos tienen que ser URLs de Storage (no base64) para que el plugin pueda descargarlas.
   const imgs = await uploadImagesToStorage(p.id, p.images || []);
+  mergeImagesWeb(p, imgs);
   p.images = imgs;
   const sku = String(p.sku || '').trim();
   if(!sku) throw new Error('El producto necesita SKU para sincronizarse con moss.uy');
@@ -2755,7 +2784,7 @@ async function queueWooSync(p){
     at: Date.now(),
     payload: {
       name: p.name || '', sku: sku, desc: p.desc || '', cat: p.cat || '', publish: !!window._wooPublishDrafts,
-      images: imgs.filter(u => typeof u === 'string' && u.startsWith('http')),
+      images: imgs.filter(u => typeof u === 'string' && u.startsWith('http')).map(u => { const x = (p.imagesWeb || []).find(y => y.s === u); return x ? x.w : u; }),
       measures: measures
     }
   };
@@ -3228,6 +3257,7 @@ function saveProduct(){
       if(old.wooExport) p.wooExport = old.wooExport;
       if(old.wooSyncedAt) p.wooSyncedAt = old.wooSyncedAt;
       if(old.wooSyncError) p.wooSyncError = old.wooSyncError;
+      if(old.imagesWeb) p.imagesWeb = old.imagesWeb;
       products[idx] = p;
     } else { products.push(p); }
   } else {
