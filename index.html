@@ -837,6 +837,60 @@ button, a, select, label, .preset-pill, .tab-btn, .cat-item, .card{ touch-action
 .tab-btn{ position:relative; z-index:6; -webkit-tap-highlight-color:transparent; }
 .preset-custom-btn{ display:inline-block; margin-top:6px; padding:8px 12px; border:1px solid var(--walnut); border-radius:8px; background:var(--white); color:var(--walnut); font-size:13px; cursor:pointer; touch-action:manipulation; }
 .preset-back-btn{ display:inline-block; margin:0 0 8px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:var(--white); color:var(--espresso); font-size:12px; cursor:pointer; touch-action:manipulation; }
+
+/* ── Visor de fotos con zoom (pellizco, doble toque, rueda) ── */
+.lightbox{touch-action:none;overflow:hidden;-webkit-user-select:none;user-select:none;}
+.lightbox img#lb-img{max-width:100vw;max-height:100vh;width:auto;height:auto;border-radius:0;object-fit:contain;transform-origin:50% 50%;will-change:transform;-webkit-user-drag:none;user-drag:none;touch-action:none;}
+.lightbox img#lb-img.lb-anim{transition:transform .18s ease-out;}
+.lb-tools{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:8px;align-items:center;z-index:3;}
+.lb-tools button{width:46px;height:46px;border-radius:50%;border:none;background:rgba(255,255,255,.18);color:#fff;font-size:24px;line-height:1;cursor:pointer;touch-action:manipulation;}
+.lb-tools button:active{background:rgba(255,255,255,.32);}
+.lb-hint{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));left:16px;color:rgba(255,255,255,.75);font-size:12px;z-index:3;pointer-events:none;}
+.lb-close,.lb-nav{z-index:3;}
+
+/* ── Celular: fotos de los productos lo más grandes posible, 2 columnas y poco aire ── */
+@media(max-width:720px){
+  .content{ padding:6px 4px !important; }
+  .content-header{ margin-bottom:6px; gap:6px; }
+  .filter-bar{ padding:8px 8px; gap:6px; margin-bottom:8px; border-radius:8px; }
+  .product-grid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:5px !important; }
+  .product-card{ border-radius:8px; }
+  .card-img-wrap, .card-no-img{ height:auto !important; aspect-ratio:4/3; }
+  .card-img-wrap img{ position:absolute; inset:0; width:100%; height:100%; padding:0 !important; object-fit:contain; }
+  .card-body{ padding:5px 7px 6px !important; }
+  .card-cat{ font-size:9px; margin-bottom:2px; letter-spacing:.05em; }
+  .card-name{ font-size:14px; line-height:1.2; }
+  .card-footer{ padding:4px 5px 5px !important; gap:4px; }
+  .btn-quote{ padding:8px 4px; }
+  .img-badge{ bottom:5px; right:5px; padding:2px 6px; }
+  /* la sombra del menú lateral asomaba por el borde izquierdo con el menú cerrado */
+  .sidebar{ box-shadow:none !important; }
+  .sidebar.open{ box-shadow:4px 0 24px rgba(0,0,0,.18) !important; }
+}
+
+/* ── Celular: nada puede ser más ancho que la pantalla (evita que la página se desborde o se agrande) ── */
+html, body{ max-width:100%; overflow-x:clip; }
+@media(max-width:720px){
+  .header{ overflow:hidden; }
+  .header-left{ min-width:0; flex:1 1 auto; }
+  .header{ padding:0 8px; gap:6px; }
+  .header-left{ gap:6px; }
+  .logo-img{ height:26px; }
+  .nav-tabs{ flex:0 0 auto; max-width:none; overflow:visible; }
+  .nav-tab{ padding:8px 10px; }
+  .admin-indicator{ flex-shrink:0; gap:4px; }
+  #btn-login{ padding:6px 8px; font-size:10px; white-space:nowrap; }
+}
+@media(max-width:400px){
+  .header{ padding:0 6px; gap:4px; }
+  .header-left{ gap:4px; }
+  .hamburger{ padding:6px; }
+  .logo-img{ height:23px; }
+  .nav-tab{ padding:7px 7px; font-size:11px; }
+  #btn-login{ padding:6px 6px; }
+  .admin-indicator{ gap:3px; }
+  .admin-indicator button{ padding:4px 5px !important; }
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -1810,6 +1864,8 @@ button, a, select, label, .preset-pill, .tab-btn, .cat-item, .card{ touch-action
   <button class="lb-nav lb-prev" onclick="lbNav(-1)">‹</button>
   <img id="lb-img" src="" alt="">
   <button class="lb-nav lb-next" onclick="lbNav(1)">›</button>
+  <div class="lb-hint" id="lb-hint"></div>
+  <div class="lb-tools"><button type="button" onclick="lbZoomBtn(-1)" aria-label="Alejar">−</button><button type="button" onclick="lbZoomBtn(0)" aria-label="Restablecer" style="font-size:14px;">1:1</button><button type="button" onclick="lbZoomBtn(1)" aria-label="Acercar">+</button></div>
 </div>
 
 
@@ -3514,9 +3570,120 @@ function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure,maderaOverride)
 const priceStr=price>0?fmt(price):'—';document.getElementById('qr-product').textContent=p.name;document.getElementById('qr-dims').textContent=(name&&name!==p.name?name+' — ':'')+dimLabel;document.getElementById('qr-price').textContent=priceStr;document.getElementById('qm-result').style.display='flex';document.getElementById('qm-wapp-wrap').style.display='block';const tap=p.upholstery?'\n🧵 *Tapizado:* a elección del cliente':'';const web=MOSS_WEB?`\n🌐 ${MOSS_WEB}`:'';const skuLine=p.sku?`🏷️ *Código:* ${p.sku}\n`:'';const varLabel=name&&name!==p.name?`${name} — `:'';const msg=encodeURIComponent(`*Cotización Moss Home Store*\n─────────────────────\n🪑 *Producto:* ${p.name}\n${skuLine}📐 *Medida:* ${varLabel}${dimLabel}${tap}\n💰 *Precio de lista:* ${priceStr}\n─────────────────────\n💳 Aceptamos tarjetas de crédito\n💵 *10% de descuento* pagando en efectivo o transferencia\n─────────────────────\n📍 ${MOSS_ADDR}\n📸 Instagram: ${MOSS_IG}${web}\n\n_Precio estimado. Sujeto a confirmación de pedido._`);document.getElementById('qm-wapp-link').href=`https://wa.me/?text=${msg}`;}
 function copyQuoteTxt(){const prod=document.getElementById('qr-product').textContent;const dims=document.getElementById('qr-dims').textContent;const price=document.getElementById('qr-price').textContent;if(!prod){toast('Seleccioná una medida primero');return;}const p=quoteProduct;const tap=p.upholstery?'\n🧵 Tapizado: a elección del cliente':'';const web=MOSS_WEB?`\n🌐 ${MOSS_WEB}`:'';const skuTxt=p.sku?`🏷️ Código: ${p.sku}\n`:'';const copyProd=quoteProduct?quoteProduct.name:prod;navigator.clipboard.writeText(`*Cotización Moss Home Store*\n─────────────────────\n🪑 Producto: ${copyProd}\n${skuTxt}📐 Medida: ${dims}${tap}\n💰 Precio de lista: ${price}\n─────────────────────\n💳 Aceptamos tarjetas de crédito\n💵 *10% de descuento* pagando en efectivo o transferencia\n─────────────────────\n📍 ${MOSS_ADDR}\n📸 Instagram: ${MOSS_IG}${web}\n\n_Precio estimado. Sujeto a confirmación de pedido._`).then(()=>toast('Cotización copiada al portapapeles'));}
 
-function openLightbox(i){lbIdx=i;document.getElementById('lb-img').src=lbImages[i];document.getElementById('lightbox').classList.add('open');}
-function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
-function lbNav(dir){lbIdx=(lbIdx+dir+lbImages.length)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIdx];}
+
+// ── Visor de fotos con zoom ───────────────────────────────────────────────────
+const LB = { s:1, tx:0, ty:0, max:6, ptrs:new Map(), g:null, lastTap:0, lastX:0, lastY:0, hi:false, moved:false };
+function lbHiRes(url){
+  for(const p of products){ const x=(p.imagesWeb||[]).find(y=>y.s===url); if(x) return x.w; }
+  return null;
+}
+function lbApply(anim){
+  const img=document.getElementById('lb-img'); if(!img) return;
+  img.classList.toggle('lb-anim', !!anim);
+  const vw=window.innerWidth, vh=window.innerHeight, bw=img.offsetWidth||vw, bh=img.offsetHeight||vh;
+  const mx=Math.max(0,(bw*LB.s-vw)/2), my=Math.max(0,(bh*LB.s-vh)/2);
+  LB.tx=Math.min(mx,Math.max(-mx,LB.tx)); LB.ty=Math.min(my,Math.max(-my,LB.ty));
+  if(LB.s<=1.001){ LB.s=1; LB.tx=0; LB.ty=0; }
+  img.style.transform='translate('+LB.tx+'px,'+LB.ty+'px) scale('+LB.s+')';
+}
+function lbReset(){ LB.s=1; LB.tx=0; LB.ty=0; LB.hi=false; LB.ptrs.clear(); LB.g=null; lbApply(false); const h=document.getElementById('lb-hint'); if(h) h.textContent=''; }
+function lbSetScale(ns, px, py, anim){
+  // zoom manteniendo fijo el punto (px,py) de la pantalla
+  const cx=window.innerWidth/2, cy=window.innerHeight/2;
+  ns=Math.min(LB.max,Math.max(1,ns));
+  const ux=(px-cx-LB.tx)/LB.s, uy=(py-cy-LB.ty)/LB.s;
+  LB.s=ns; LB.tx=px-cx-ux*ns; LB.ty=py-cy-uy*ns;
+  lbApply(anim);
+  if(ns>1.05) lbLoadHi();
+}
+function lbLoadHi(){
+  if(LB.hi) return; LB.hi=true;
+  const url=lbImages[lbIdx], hi=lbHiRes(url), hint=document.getElementById('lb-hint'), idx=lbIdx;
+  if(!hi || hi===url){ return; }
+  if(hint) hint.textContent='Cargando alta resolución…';
+  const t=new Image();
+  t.onload=()=>{ if(idx===lbIdx){ document.getElementById('lb-img').src=hi; if(hint) hint.textContent='Alta resolución'; } };
+  t.onerror=()=>{ if(hint) hint.textContent=''; };
+  t.src=hi;
+}
+function lbZoomBtn(d){
+  const cx=window.innerWidth/2, cy=window.innerHeight/2;
+  if(d===0) lbSetScale(1,cx,cy,true); else lbSetScale(d>0?LB.s*1.6:LB.s/1.6,cx,cy,true);
+}
+function openLightbox(i){
+  lbIdx=i; lbReset();
+  document.getElementById('lb-img').src=lbImages[i];
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); lbReset(); }
+function lbNav(dir){
+  if(!lbImages.length) return;
+  lbIdx=(lbIdx+dir+lbImages.length)%lbImages.length; lbReset();
+  document.getElementById('lb-img').src=lbImages[lbIdx];
+}
+(function(){
+  const box=document.getElementById('lightbox'); if(!box) return;
+  const pts=()=>Array.from(LB.ptrs.values());
+  box.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button')) return;
+    box.setPointerCapture && box.setPointerCapture(e.pointerId);
+    LB.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY});
+    LB.moved=false;
+    const a=pts();
+    if(a.length===2){
+      const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;
+      LB.g={type:'pinch',d0:d,s0:LB.s,tx0:LB.tx,ty0:LB.ty,mx:(a[0].x+a[1].x)/2,my:(a[0].y+a[1].y)/2};
+    } else if(a.length===1){
+      LB.g={type:'pan',x0:e.clientX,y0:e.clientY,tx0:LB.tx,ty0:LB.ty};
+    }
+  });
+  box.addEventListener('pointermove',e=>{
+    const p=LB.ptrs.get(e.pointerId); if(!p||!LB.g) return;
+    p.x=e.clientX; p.y=e.clientY;
+    if(Math.hypot(p.x-p.x0,p.y-p.y0)>8) LB.moved=true;
+    const a=pts();
+    if(LB.g.type==='pinch' && a.length>=2){
+      const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;
+      const mx=(a[0].x+a[1].x)/2, my=(a[0].y+a[1].y)/2, cx=window.innerWidth/2, cy=window.innerHeight/2;
+      const ux=(LB.g.mx-cx-LB.g.tx0)/LB.g.s0, uy=(LB.g.my-cy-LB.g.ty0)/LB.g.s0;
+      const ns=Math.min(LB.max,Math.max(1,LB.g.s0*d/LB.g.d0));
+      LB.s=ns; LB.tx=mx-cx-ux*ns; LB.ty=my-cy-uy*ns; lbApply(false);
+      if(ns>1.05) lbLoadHi();
+    } else if(LB.g.type==='pan' && LB.s>1){
+      LB.tx=LB.g.tx0+(e.clientX-LB.g.x0); LB.ty=LB.g.ty0+(e.clientY-LB.g.y0); lbApply(false);
+    }
+    e.preventDefault();
+  });
+  function end(e){
+    const p=LB.ptrs.get(e.pointerId); if(!p) return;
+    LB.ptrs.delete(e.pointerId);
+    const dx=e.clientX-p.x0, dy=e.clientY-p.y0;
+    if(LB.g && LB.g.type==='pan' && LB.ptrs.size===0){
+      if(!LB.moved){   // toque: ¿doble toque?
+        const now=Date.now();
+        if(now-LB.lastTap<320 && Math.hypot(e.clientX-LB.lastX,e.clientY-LB.lastY)<40){
+          lbSetScale(LB.s>1.05?1:2.5,e.clientX,e.clientY,true); LB.lastTap=0;
+        } else { LB.lastTap=now; LB.lastX=e.clientX; LB.lastY=e.clientY; }
+      } else if(LB.s<=1.001 && Math.abs(dx)>60 && Math.abs(dy)<80 && lbImages.length>1){
+        lbNav(dx<0?1:-1);
+      }
+    }
+    if(LB.ptrs.size===1){ const r=pts()[0]; LB.g={type:'pan',x0:r.x,y0:r.y,tx0:LB.tx,ty0:LB.ty}; r.x0=r.x; r.y0=r.y; }
+    else if(LB.ptrs.size===0){ LB.g=null; }
+  }
+  box.addEventListener('pointerup',end); box.addEventListener('pointercancel',end);
+  box.addEventListener('wheel',e=>{
+    if(!box.classList.contains('open')) return;
+    e.preventDefault();
+    lbSetScale(LB.s*Math.exp(-e.deltaY*0.0022),e.clientX,e.clientY,false);
+  },{passive:false});
+  window.addEventListener('resize',()=>lbApply(false));
+  document.addEventListener('keydown',e=>{
+    if(!box.classList.contains('open')) return;
+    if(e.key==='+'||e.key==='=') lbZoomBtn(1); else if(e.key==='-') lbZoomBtn(-1); else if(e.key==='0') lbZoomBtn(0);
+    else if(e.key==='ArrowLeft') lbNav(-1); else if(e.key==='ArrowRight') lbNav(1);
+  });
+})();
 
 function renderSettings(){document.getElementById('cfg-factor').value=cfg.factor;document.getElementById('cfg-currency').value=cfg.currency;renderMaderasConfig();
   const ael=document.getElementById('admin-emails-list');
