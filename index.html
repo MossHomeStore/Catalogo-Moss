@@ -891,6 +891,8 @@ html, body{ max-width:100%; overflow-x:clip; }
   .admin-indicator{ gap:3px; }
   .admin-indicator button{ padding:4px 5px !important; }
 }
+.mg-chk{display:flex !important;align-items:flex-start;gap:8px;text-transform:none !important;letter-spacing:0 !important;font-size:13px;cursor:pointer;}
+.mg-chk input{width:auto !important;flex:0 0 auto;margin-top:2px;min-height:0 !important;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -1020,6 +1022,7 @@ html, body{ max-width:100%; overflow-x:clip; }
         <div class="content-title">Gestión de productos</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn-secondary" onclick="openPriceAdj()">📊 Ajustar precios</button>
+          <button class="btn-secondary" onclick="mgOpen()">📈 Ajuste de margen por categoría</button>
           <label class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
             <input type="file" accept=".json" style="display:none;" onchange="importJSON(this)">
             📥 Importar JSON
@@ -2841,7 +2844,7 @@ async function queueWooSync(p){
   if(!sku) throw new Error('El producto necesita SKU para sincronizarse con moss.uy');
   const measures = (p.measures || []).map(m => ({
     name: m.name || 'Medida', w: m.w || 0, h: m.h || 0, d: m.d || 0,
-    price: Math.round(calcPrice(p, m) || 0)
+    price: Math.round(calcPrice(p, m, p.madera || (getMaderas()[0] && getMaderas()[0].id) || '') || 0)
   }));
   const seen = {};
   for(const m of measures){
@@ -6601,6 +6604,212 @@ async function fxApply(){
   F.busy = false;
   F.applied = ok + ' foto(s) guardadas como versión web' + (fail ? ' · <span style="color:#b3261e;">' + fail + ' con error</span>' : '') + '. Ahora usá «Actualizar todos los publicados» para enviarlas a moss.uy.';
   fxRender();
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Ajuste de margen en lote, con un valor distinto por categoría.
+// Cambia el multiplicador (factor) de los productos que se calculan por costos y/o los
+// precios manuales. Muestra el precio REAL resultante (el catálogo redondea siempre a X900).
+// ═════════════════════════════════════════════════════════════════════════════
+window._mg = { open: {}, excl: {}, vals: {}, mode: 'pct', scopeFactor: true, scopeManual: true, round: 'near', skipOwn: false, sendWeb: false, busy: false, msg: '', all: '' };
+
+function mgMadera(p){ return p.madera || (getMaderas()[0] && getMaderas()[0].id) || ''; }
+function mgEffFactor(p){ return p.factor || cfg.factor || 2; }
+function mgMeasureKind(p, m){
+  if(m && m.price && m.price > 0) return 'manual';
+  const mc = ((m && m.carp)||0) + ((m && m.lust)||0) + ((m && m.extra)||0) + ((m && m.tapic)||0);
+  if(mc > 0) return 'cost';
+  if(((p.carp||0)+(p.lust||0)+(p.extra||0)) > 0) return 'cost';
+  return 'none';
+}
+function mgRoundManual(oldP, base, mode){
+  let v;
+  if(mode === 'up'){ v = roundTo90(base); }
+  else { v = Math.round((base - 900) / 1000) * 1000 + 900; if(v < 900) v = 900; }
+  // un aumento nunca baja el precio y una baja nunca lo sube
+  if(base >= oldP && v < oldP) v = oldP;
+  if(base <= oldP && v > oldP) v = oldP;
+  return v;
+}
+function mgMult(p, val){
+  if(val === '' || val == null || isNaN(val)) return null;
+  const M = window._mg;
+  if(M.mode === 'pct'){ const m = 1 + Number(val)/100; return m > 0 ? m : null; }
+  const f0 = mgEffFactor(p); return Number(val) > 0 && f0 > 0 ? Number(val) / f0 : null;
+}
+// Calcula el cambio propuesto para un producto (sin modificarlo)
+function mgPlan(p, val){
+  const M = window._mg;
+  if(p.sofaModelId) return { skip:'sofá' };
+  if(M.excl[p.id]) return { skip:'excluido' };
+  if(M.skipOwn && p.factor) return { skip:'multiplicador propio' };
+  const mult = mgMult(p, val); if(mult == null) return { skip:'sin valor' };
+  const mad = mgMadera(p);
+  const f0 = mgEffFactor(p), nf = Math.round(f0 * mult * 1000) / 1000;
+  const hasCost = (p.measures||[]).some(m => mgMeasureKind(p, m) === 'cost');
+  const newFactor = (M.scopeFactor && hasCost) ? nf : null;
+  const clone = Object.assign({}, p, newFactor ? { factor:newFactor } : {});
+  const rows = (p.measures||[]).map((m, i) => {
+    const kind = mgMeasureKind(p, m);
+    const oldP = calcPrice(p, m, mad);
+    let newManual = null, mm = m;
+    if(kind === 'manual' && M.scopeManual){ newManual = mgRoundManual(m.price, m.price * mult, M.round); mm = Object.assign({}, m, { price:newManual }); }
+    const newP = calcPrice(clone, mm, mad);
+    return { i, kind, oldP, newP, newManual };
+  });
+  return { mult, newFactor, rows, changes: rows.some(r => r.newP !== r.oldP) || (newFactor && newFactor !== p.factor) };
+}
+function mgCats(){
+  const by = {};
+  products.forEach(p => { const c = p.cat || '(sin categoría)'; (by[c] = by[c] || []).push(p); });
+  return Object.keys(by).sort((a,b)=>a.localeCompare(b,'es')).map(c => ({ cat:c, list:by[c] }));
+}
+function mgOpen(){
+  let o = document.getElementById('mg-overlay');
+  if(!o){ o = document.createElement('div'); o.id = 'mg-overlay'; o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow:auto;padding:12px;'; document.body.appendChild(o); }
+  o.style.display = 'block'; mgRender();
+}
+function mgClose(){
+  if(window._mg.busy && !confirm('Hay un proceso en curso. ¿Cerrar igual?')) return;
+  const o = document.getElementById('mg-overlay'); if(o) o.style.display = 'none';
+  if(typeof renderGrid === 'function') renderGrid(); if(typeof renderAdmin === 'function') renderAdmin();
+}
+function mgSet(cat, v){ window._mg.vals[cat] = v; mgRender(true); }
+function mgSetAll(){ const v = (document.getElementById('mg-all')||{}).value; window._mg.all = v; mgCats().forEach(c => window._mg.vals[c.cat] = v); mgRender(); }
+function mgOpt(k, v){ window._mg[k] = v; mgRender(); }
+function mgFmtX(x){ return '×' + (Math.round(x*1000)/1000).toString().replace('.', ','); }
+function mgRender(keepFocus){
+  const o = document.getElementById('mg-overlay'); if(!o) return;
+  const M = window._mg;
+  const focusCat = keepFocus && document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-cat');
+  const b1 = 'class="btn-sm" style="background:#7f54b3;color:#fff;"';
+  const b2 = 'class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);"';
+  const inp = 'padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;width:90px;';
+  const cats = mgCats();
+  let totChanged = 0, totProd = 0, totVar = 0, sumOld = 0, sumNew = 0;
+  let rowsHtml = '';
+  cats.forEach(c => {
+    const val = M.vals[c.cat];
+    let nProd = 0, nSkip = 0, nVar = 0, nChg = 0, so = 0, sn = 0, fmin = 99, fmax = 0, hasVal = (val !== '' && val != null && !isNaN(val));
+    let detail = '';
+    const isOpen = !!M.open[c.cat];
+    const money = n => (n == null ? '—' : fmt(n));
+    c.list.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'es')).forEach(p => {
+      if(isOpen){
+        const pid = String(p.id).replace(/'/g, "\\'");
+        if(p.sofaModelId){ detail += '<div style="padding:4px 0;opacity:.6;font-size:12px;">'+wooEsc(p.name)+' — sofá con modelo propio (no se toca)</div>'; }
+        else {
+          const plx = hasVal ? mgPlan(p, val) : null;
+          const ex = !!M.excl[p.id];
+          detail += '<div style="padding:5px 0;border-top:1px dashed var(--border);font-size:12px;"><label class="mg-chk" style="font-size:12px;"><input type="checkbox" '+(ex?'':'checked ')+'onchange="window._mg.excl[\''+pid+'\']=!this.checked;mgRender()"><span><b>'+wooEsc(p.name)+'</b>'+
+            (ex?' <span style="opacity:.6;">— excluido</span>':'')+(plx&&plx.skip&&!ex&&plx.skip!=='sin valor'?' <span style="opacity:.6;">— sin tocar ('+plx.skip+')</span>':'')+
+            (plx&&plx.newFactor?' <span style="opacity:.7;">· multiplicador '+mgFmtX(mgEffFactor(p))+' → '+mgFmtX(plx.newFactor)+'</span>':'')+'</span></label>';
+          (p.measures||[]).forEach((m, i) => {
+            const r = plx && plx.rows ? plx.rows[i] : null;
+            const oldP = r ? r.oldP : calcPrice(p, m, mgMadera(p)), newP = r ? r.newP : null;
+            const d = r ? r.newP - r.oldP : 0, pc = r && r.oldP > 0 ? (d / r.oldP * 100) : 0;
+            detail += '<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 24px;"><span style="opacity:.8;">'+wooEsc(m.name||('Variante '+(i+1)))+(m.w?' '+[m.w,m.h,m.d].filter(Boolean).join('×'):'')+'</span><span style="white-space:nowrap;">'+money(oldP)+(r?' → <b style="color:'+(d>0?'#b3261e':'inherit')+'">'+money(newP)+'</b> <span style="opacity:.7;">'+(d?(d>0?'+':'')+pc.toFixed(1).replace('.',',')+' %':'sin cambio')+'</span>':'')+'</span></div>';
+          });
+          detail += '</div>';
+        }
+      }
+      if(p.sofaModelId){ nSkip++; return; }
+      const f = mgEffFactor(p); if((p.measures||[]).some(m => mgMeasureKind(p, m) === 'cost')){ fmin = Math.min(fmin, f); fmax = Math.max(fmax, f); }
+      if(!hasVal) return;
+      const pl = mgPlan(p, val);
+      if(pl.skip){ nSkip++; return; }
+      if(!pl.changes) return;
+      nProd++;
+      pl.rows.forEach(r => { if(r.oldP > 0){ nVar++; so += r.oldP; sn += r.newP; if(r.newP !== r.oldP) nChg++; } });
+    });
+    totProd += nProd; totVar += nVar; totChanged += nChg; sumOld += so; sumNew += sn;
+    const real = so > 0 ? ((sn / so - 1) * 100) : null;
+    const factorTxt = fmax ? (fmin === fmax ? mgFmtX(fmin) : mgFmtX(fmin) + '–' + mgFmtX(fmax)) : '—';
+    rowsHtml += '<tr style="border-top:1px solid var(--border);">'+
+      '<td style="padding:6px 6px 6px 0;"><b>'+wooEsc(c.cat)+'</b><br><span style="opacity:.6;font-size:11px;">'+c.list.length+' producto'+(c.list.length===1?'':'s')+(nSkip?' · '+nSkip+' sin tocar':'')+'</span><br><a href="#" style="font-size:12px;color:var(--walnut);" onclick="window._mg.open[\''+c.cat.replace(/'/g,"\\'")+'\']='+(isOpen?'false':'true')+';mgRender();return false;">'+(isOpen?'▾ ocultar detalle':'▸ ver precio por producto')+'</a></td>'+
+      '<td style="padding:6px;text-align:center;">'+factorTxt+'</td>'+
+      '<td style="padding:6px;"><input data-cat="'+wooEsc(c.cat)+'" type="number" step="0.1" value="'+(val==null?'':wooEsc(val))+'" placeholder="—" style="'+inp+'" oninput="mgSet(this.getAttribute(\'data-cat\'),this.value)"></td>'+
+      '<td style="padding:6px 0 6px 6px;text-align:right;white-space:nowrap;">'+(real==null ? '' : '<b>'+(real>=0?'+':'')+real.toFixed(1).replace('.',',')+' %</b><br><span style="font-size:11px;opacity:.7;">'+nChg+' de '+nVar+' cambian</span>')+'</td></tr>'+
+      (isOpen ? '<tr><td colspan="4" style="padding:0 0 10px;">'+detail+'</td></tr>' : '');
+  });
+  const totReal = sumOld > 0 ? ((sumNew / sumOld - 1) * 100) : 0;
+  const undoN = mgUndoCount();
+  let h = '<div style="background:var(--cream,#fff);color:var(--espresso,#222);max-width:900px;margin:0 auto;border-radius:12px;padding:16px;">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;"><h2 style="margin:0;font-size:18px;">📈 Ajuste de margen por categoría</h2><button '+b2+' onclick="mgClose()">✕ Cerrar</button></div>';
+  h += '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;font-size:13px;align-items:center;">';
+  h += '<label>Ingresar como: <select style="'+inp+'width:auto;" onchange="mgOpt(\'mode\',this.value)"><option value="pct"'+(M.mode==='pct'?' selected':'')+'>% de aumento</option><option value="x"'+(M.mode==='x'?' selected':'')+'>Nuevo multiplicador (×)</option></select></label>';
+  h += '<label>Mismo valor a todas: <input id="mg-all" type="number" step="0.1" value="'+wooEsc(M.all)+'" style="'+inp+'width:80px;"> <button '+b2+' onclick="mgSetAll()">Aplicar a todas</button></label></div>';
+  h += '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">';
+  h += '<label class="mg-chk"><input type="checkbox" '+(M.scopeFactor?'checked ':'')+'onchange="mgOpt(\'scopeFactor\',this.checked)"> Subir el multiplicador (productos por costos)</label>';
+  h += '<label class="mg-chk"><input type="checkbox" '+(M.scopeManual?'checked ':'')+'onchange="mgOpt(\'scopeManual\',this.checked)"> Subir precios manuales</label>';
+  h += '<label class="mg-chk"><input type="checkbox" '+(M.skipOwn?'checked ':'')+'onchange="mgOpt(\'skipOwn\',this.checked)"> No tocar productos con multiplicador propio (reventa)</label>';
+  h += '<label>Redondeo de precios manuales: <select style="'+inp+'width:auto;" onchange="mgOpt(\'round\',this.value)"><option value="near"'+(M.round==='near'?' selected':'')+'>al X900 más cercano</option><option value="up"'+(M.round==='up'?' selected':'')+'>siempre al X900 siguiente</option></select></label></div>';
+  h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;"><tr><th style="text-align:left;">Categoría</th><th style="padding:0 8px;">Hoy</th><th style="text-align:left;padding:0 6px;">'+(M.mode==='pct'?'% aumento':'Nuevo ×')+'</th><th style="text-align:right;">Suba real</th></tr>'+rowsHtml+'</table></div>';
+  h += '<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"><b>Total:</b> '+totProd+' producto'+(totProd===1?'':'s')+' · '+totChanged+' de '+totVar+' variante'+(totVar===1?'':'s')+' cambian de precio'+(sumOld>0?' · suba real promedio <b>'+(totReal>=0?'+':'')+totReal.toFixed(1).replace('.',',')+' %</b>':'')+
+    '<div style="font-size:12px;opacity:.75;margin-top:4px;">El catálogo redondea siempre a X900, por eso la suba real puede diferir del % que pongas: algunas variantes no cambian y otras suben un escalón de $1.000.</div></div>';
+  h += '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">';
+  h += '<label class="mg-chk" style="font-size:13px;"><input type="checkbox" '+(M.sendWeb?'checked ':'')+'onchange="mgOpt(\'sendWeb\',this.checked)"> Enviar a la cola de moss.uy los productos ya publicados que cambien</label>';
+  h += M.busy ? '<span>⏳ Aplicando…</span>' : '<button '+b1+' onclick="mgApply()"'+(totProd?'':' disabled')+'>✅ Aplicar a '+totProd+' producto'+(totProd===1?'':'s')+'</button>';
+  if(undoN && !M.busy) h += '<button '+b2+' onclick="mgUndo()">↩ Deshacer el último ajuste ('+undoN+')</button>';
+  h += '<span style="font-size:13px;">'+(M.msg||'')+'</span></div>';
+  h += '</div>';
+  o.innerHTML = h;
+  if(focusCat){ const el = o.querySelector('input[data-cat="'+focusCat.replace(/"/g,'\\"')+'"]'); if(el){ el.focus(); const l = el.value.length; try{ el.setSelectionRange(l,l); }catch(e){} } }
+}
+function mgUndoCount(){
+  let max = 0; products.forEach(p => { if(p.marginBackup && p.marginBackup.at > max) max = p.marginBackup.at; });
+  return max ? products.filter(p => p.marginBackup && p.marginBackup.at === max).length : 0;
+}
+async function mgApply(){
+  const M = window._mg; if(M.busy) return;
+  const todo = [];
+  mgCats().forEach(c => { const val = M.vals[c.cat]; if(val === '' || val == null || isNaN(val)) return; c.list.forEach(p => { const pl = mgPlan(p, val); if(!pl.skip && pl.changes) todo.push({ p, pl }); }); });
+  if(!todo.length) return;
+  if(!confirm('Se van a modificar los precios de ' + todo.length + ' producto(s). Se guarda una copia para poder deshacer. ¿Continuar?')) return;
+  M.busy = true; M.msg = ''; mgRender();
+  const at = Date.now(); let ok = 0; const errs = []; const toWeb = [];
+  for(const { p, pl } of todo){
+    const prev = { at, factor: p.factor == null ? null : p.factor, prices: (p.measures||[]).map(m => m.price || 0) };
+    try{
+      p.marginBackup = prev;
+      if(pl.newFactor) p.factor = pl.newFactor;
+      pl.rows.forEach(r => { if(r.newManual != null) p.measures[r.i].price = r.newManual; });
+      await saveProduct_fb(stripUndefinedDeep(p)); ok++;
+      if(M.sendWeb && (p.wooId || p.wooExport)) toWeb.push(p);
+    }catch(e){
+      p.factor = prev.factor == null ? undefined : prev.factor; (p.measures||[]).forEach((m, i) => { m.price = prev.prices[i]; }); delete p.marginBackup;
+      errs.push(p.name + ': ' + (e.message || e));
+      if(/permission|unauthorized/i.test(e.message || '')) break;
+    }
+    const sp = document.querySelector('#mg-overlay span:last-child'); if(sp) sp.textContent = 'Guardando ' + (ok + errs.length) + ' de ' + todo.length + '…';
+  }
+  let webOk = 0;
+  for(const p of toWeb){ try{ await queueWooSync(p); webOk++; }catch(e){ errs.push('moss.uy · ' + p.name + ': ' + (e.message || e)); } }
+  M.busy = false;
+  M.msg = ok + ' producto(s) actualizados' + (M.sendWeb ? ' · ' + webOk + ' en la cola de moss.uy' : '') + (errs.length ? '<br><span style="color:#b3261e;">' + errs.map(wooEsc).join('<br>') + '</span>' : '');
+  M.vals = {}; M.all = '';
+  mgRender();
+}
+async function mgUndo(){
+  const M = window._mg; if(M.busy) return;
+  let max = 0; products.forEach(p => { if(p.marginBackup && p.marginBackup.at > max) max = p.marginBackup.at; });
+  const list = products.filter(p => p.marginBackup && p.marginBackup.at === max);
+  if(!list.length || !confirm('Se van a restaurar los precios anteriores de ' + list.length + ' producto(s). ¿Continuar?')) return;
+  M.busy = true; mgRender(); let ok = 0; const errs = [];
+  for(const p of list){
+    try{
+      const b = p.marginBackup;
+      p.factor = b.factor == null ? undefined : b.factor;
+      (p.measures||[]).forEach((m, i) => { if(b.prices[i]) m.price = b.prices[i]; else delete m.price; });
+      delete p.marginBackup;
+      await saveProduct_fb(stripUndefinedDeep(p));
+      if(M.sendWeb && (p.wooId || p.wooExport)) await queueWooSync(p);
+      ok++;
+    }catch(e){ errs.push(p.name + ': ' + (e.message || e)); }
+  }
+  M.busy = false; M.msg = ok + ' producto(s) restaurados' + (errs.length ? '<br><span style="color:#b3261e;">' + errs.map(wooEsc).join('<br>') + '</span>' : '');
+  mgRender();
 }
 
 </script>
