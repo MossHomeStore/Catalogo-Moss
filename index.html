@@ -1023,6 +1023,7 @@ html, body{ max-width:100%; overflow-x:clip; }
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn-secondary" onclick="openPriceAdj()">📊 Ajustar precios</button>
           <button class="btn-secondary" onclick="mgOpen()">📈 Ajuste de margen por categoría</button>
+          <button class="btn-secondary" onclick="fvOpen()">🧾 Exportar para facturación</button>
           <label class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
             <input type="file" accept=".json" style="display:none;" onchange="importJSON(this)">
             📥 Importar JSON
@@ -6268,7 +6269,7 @@ function dgRender(){
   h += '<div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;"><b>1. Selección</b> — <span id="dg-count">'+nSel+' seleccionado'+(nSel===1?'':'s')+'</span>';
   h += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center;">';
   h += '<select id="dg-cat" style="'+inp+'" onchange="dgRender()"><option value="all">Todas las categorías</option>'+dgCats().map(c=>'<option value="'+wooEsc(c)+'"'+(catSel===c?' selected':'')+'>'+wooEsc(c)+'</option>').join('')+'</select>';
-  h += '<input id="dg-q" placeholder="Buscar por nombre" value="'+wooEsc((document.getElementById('dg-q')||{}).value||'')+'" style="'+inp+'" oninput="dgRender();document.getElementById(\'dg-q\').focus();">';
+  h += '<input id="dg-q" placeholder="Buscar por nombre" value="'+wooEsc((document.getElementById('dg-q')||{}).value||'')+'" style="'+inp+'" oninput="dgSearchInput()">';
   h += '<button '+b2+' onclick="dgSelVisible(true)">Seleccionar visibles ('+list.length+')</button>';
   h += '<button '+b2+' onclick="dgSelAll()">Seleccionar todos ('+products.length+')</button>';
   h += '<button '+b2+' onclick="dgSelNone()">Ninguno</button></div>';
@@ -6683,6 +6684,7 @@ function mgRender(keepFocus){
   const o = document.getElementById('mg-overlay'); if(!o) return;
   const M = window._mg;
   const focusCat = keepFocus && document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-cat');
+  const oldEl = focusCat ? document.activeElement : null;
   const b1 = 'class="btn-sm" style="background:#7f54b3;color:#fff;"';
   const b2 = 'class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);"';
   const inp = 'padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;width:90px;';
@@ -6755,7 +6757,11 @@ function mgRender(keepFocus){
   h += '<span style="font-size:13px;">'+(M.msg||'')+'</span></div>';
   h += '</div>';
   o.innerHTML = h;
-  if(focusCat){ const el = o.querySelector('input[data-cat="'+focusCat.replace(/"/g,'\\"')+'"]'); if(el){ el.focus(); const l = el.value.length; try{ el.setSelectionRange(l,l); }catch(e){} } }
+  if(focusCat){
+    const el = o.querySelector('input[data-cat="'+focusCat.replace(/"/g,'\\"')+'"]');
+    // Reponemos el mismo input que se estaba tipeando: conserva el texto crudo ("12.") y el cursor
+    if(el && oldEl){ el.replaceWith(oldEl); oldEl.focus(); }
+  }
 }
 function mgUndoCount(){
   let max = 0; products.forEach(p => { if(p.marginBackup && p.marginBackup.at > max) max = p.marginBackup.at; });
@@ -6812,6 +6818,90 @@ async function mgUndo(){
   mgRender();
 }
 
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Exportar artículos para la aplicación de facturación (un artículo por cada medida)
+// ═════════════════════════════════════════════════════════════════════════════
+window._fv = { incl: true, iva: 22, sep: ';', desc: true, res: null };
+
+function fvSlug(t){ return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+function fvBuild(){
+  const F = window._fv, rows = [], skipped = [], seen = {};
+  const iva = Number(F.iva) || 0;
+  const sorted = products.slice().sort((a,b)=>String(a.cat||'').localeCompare(String(b.cat||''),'es') || String(a.name).localeCompare(String(b.name),'es'));
+  sorted.forEach(p => {
+    if(p.sofaModelId){ skipped.push(p.name + ' — sofá con precio por modelo/tela (cargar a mano)'); return; }
+    const sku = String(p.sku || '').trim();
+    if(!sku){ skipped.push(p.name + ' — sin SKU'); return; }
+    if(!p.measures || !p.measures.length){ skipped.push(p.name + ' — sin medidas'); return; }
+    const mad = p.madera || (getMaderas()[0] && getMaderas()[0].id) || '';
+    p.measures.forEach(m => {
+      const listPrice = Math.round(calcPrice(p, m, mad) || 0);
+      if(listPrice <= 0){ skipped.push(p.name + ' ' + (m.name||'') + ' — sin precio'); return; }
+      let code = sku + '-' + (fvSlug([m.w,m.h,m.d].filter(Boolean).join('x')) || fvSlug(m.name) || '1');
+      if(seen[code]){ let n = 2; while(seen[code + '-' + n]) n++; code = code + '-' + n; }
+      seen[code] = 1;
+      const withIva = F.incl ? listPrice : Math.round(listPrice * (1 + iva/100));
+      const noIva = F.incl ? Math.round(listPrice / (1 + iva/100) * 100) / 100 : listPrice;
+      rows.push({
+        code, name: wooOptionLabel(Object.assign({}, m, { name: p.name + ' ' + (m.name && m.name !== 'Medida' ? m.name : '') })).replace(/\s+/g,' ').trim(),
+        cat: p.cat || '', desc: F.desc ? plainTextFv(p.desc) : '', noIva, iva, withIva
+      });
+    });
+  });
+  return { rows, skipped };
+}
+function plainTextFv(h){ return String(h||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0, 250); }
+function fvCsv(rows){
+  const F = window._fv, sep = F.sep;
+  const cell = v => { const t = String(v == null ? '' : v).replace(/\r?\n/g,' '); return (t.includes(sep) || t.includes('"')) ? '"' + t.replace(/"/g,'""') + '"' : t; };
+  const num = n => String(n).replace('.', sep === ';' ? ',' : '.');   // con ; usamos coma decimal (Excel en español)
+  const head = ['Codigo','Nombre','Categoria','Descripcion','Unidad','Moneda','Precio sin IVA','IVA %','Precio con IVA'];
+  const lines = [head.join(sep)];
+  rows.forEach(r => lines.push([r.code, r.name, r.cat, r.desc, 'Un', 'UYU', num(r.noIva), num(r.iva), num(r.withIva)].map(cell).join(sep)));
+  return '﻿' + lines.join('\r\n') + '\r\n';
+}
+function fvOpen(){
+  let o = document.getElementById('fv-overlay');
+  if(!o){ o = document.createElement('div'); o.id = 'fv-overlay'; o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow:auto;padding:12px;'; document.body.appendChild(o); }
+  o.style.display = 'block'; window._fv.res = fvBuild(); fvRender();
+}
+function fvOpt(k, v){ window._fv[k] = v; window._fv.res = fvBuild(); fvRender(); }
+function fvRender(){
+  const o = document.getElementById('fv-overlay'); if(!o) return;
+  const F = window._fv, R = F.res || { rows: [], skipped: [] };
+  const b1 = 'class="btn-sm" style="background:#7f54b3;color:#fff;"', b2 = 'class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);"';
+  const inp = 'padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;';
+  const ex = R.rows.slice(0, 4).map(r => '<tr><td style="padding:2px 6px 2px 0;">'+wooEsc(r.code)+'</td><td style="padding:2px 6px;">'+wooEsc(r.name)+'</td><td style="padding:2px 0 2px 6px;text-align:right;white-space:nowrap;">'+fmt(r.noIva)+' + IVA → '+fmt(r.withIva)+'</td></tr>').join('');
+  let h = '<div style="background:var(--cream,#fff);color:var(--espresso,#222);max-width:760px;margin:0 auto;border-radius:12px;padding:16px;">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;"><h2 style="margin:0;font-size:18px;">🧾 Exportar artículos para facturación</h2><button '+b2+' onclick="document.getElementById(\'fv-overlay\').style.display=\'none\'">✕ Cerrar</button></div>';
+  h += '<p style="font-size:13px;opacity:.8;">Genera un archivo con un artículo por cada medida (código = SKU + medida), listo para adaptar a la plantilla de importación de tu aplicación.</p>';
+  h += '<div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">';
+  h += '<label class="mg-chk"><input type="checkbox" '+(F.incl?'checked ':'')+'onchange="fvOpt(\'incl\',this.checked)"><span>El precio de lista del catálogo <b>ya incluye IVA</b></span></label>';
+  h += '<label>IVA %: <input type="number" value="'+F.iva+'" step="1" style="'+inp+'width:80px;" onchange="fvOpt(\'iva\',this.value)"></label>';
+  h += '<label>Separador: <select style="'+inp+'" onchange="fvOpt(\'sep\',this.value)"><option value=";"'+(F.sep===';'?' selected':'')+'>punto y coma (Excel en español)</option><option value=","'+(F.sep===','?' selected':'')+'>coma</option></select></label>';
+  h += '<label class="mg-chk"><input type="checkbox" '+(F.desc?'checked ':'')+'onchange="fvOpt(\'desc\',this.checked)"><span>Incluir la descripción (recortada a 250 caracteres)</span></label></div>';
+  h += '<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"><b>'+R.rows.length+' artículos</b> listos · '+R.skipped.length+' para revisar a mano'+
+    (ex?'<table style="width:100%;font-size:12px;margin-top:6px;border-collapse:collapse;">'+ex+'</table>':'')+'</div>';
+  if(R.skipped.length) h += '<details style="margin-top:8px;font-size:12px;"><summary style="cursor:pointer;">Ver los '+R.skipped.length+' que no se incluyen</summary><div style="max-height:200px;overflow:auto;margin-top:4px;">'+R.skipped.map(wooEsc).join('<br>')+'</div></details>';
+  h += '<div style="margin-top:12px;"><button '+b1+' onclick="fvDownload()"'+(R.rows.length?'':' disabled')+'>⬇ Descargar archivo CSV</button></div></div>';
+  o.innerHTML = h;
+}
+function fvDownload(){
+  const R = window._fv.res; if(!R || !R.rows.length) return;
+  const blob = new Blob([fvCsv(R.rows)], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'articulos-moss-facturacion-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+
+function dgSearchInput(){
+  const e = document.getElementById('dg-q'); const pos = e ? e.selectionStart : null;
+  dgRender();
+  const n = document.getElementById('dg-q');
+  if(n){ n.focus(); try{ const l = (pos == null ? n.value.length : pos); n.setSelectionRange(l, l); }catch(x){} }
+}
 </script>
 </body>
 </html>
