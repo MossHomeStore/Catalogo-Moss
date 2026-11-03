@@ -965,7 +965,8 @@ html, body{ max-width:100%; overflow-x:clip; }
     <div id="view-catalog">
       <div class="content-header">
         <div class="content-title" id="cat-title-display">Todos los productos</div>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-secondary" id="btn-share-cat" onclick="shareCategory()" style="display:none;">📲 Compartir categoría</button>
           <button class="btn-secondary" id="btn-price-adj" onclick="openPriceAdj()" style="display:none;">📊 Ajustar precios</button>
           <button class="btn-primary" id="btn-new-product" onclick="openProductModal()" style="display:none;">+ Nuevo producto</button>
         </div>
@@ -2734,7 +2735,7 @@ function applySort(){
   renderGrid(document.getElementById('search-input').value||'');
 }
 
-function filterCat(cat){filterPrecioMin=0;filterPrecioMax=0;['f-pmin','f-pmax'].forEach(function(id){var e=document.getElementById(id);if(e){e.value='';e.classList.remove('filter-active');}});currentCat=cat;document.getElementById('cat-title-display').textContent=cat==='all'?'Todos los productos':cat;renderCats();renderGrid();if(window.innerWidth<720)toggleSidebar();}
+function filterCat(cat){filterPrecioMin=0;filterPrecioMax=0;['f-pmin','f-pmax'].forEach(function(id){var e=document.getElementById(id);if(e){e.value='';e.classList.remove('filter-active');}});currentCat=cat;if(typeof updateShareCatBtn==='function')updateShareCatBtn();document.getElementById('cat-title-display').textContent=cat==='all'?'Todos los productos':cat;renderCats();renderGrid();if(window.innerWidth<720)toggleSidebar();}
 
 function renderGrid(search=''){const grid=document.getElementById('product-grid');let list=currentCat==='all'?[...products]:products.filter(p=>p.cat===currentCat);if(search){const q=search.toLowerCase();list=list.filter(p=>p.name.toLowerCase().includes(q)||p.cat.toLowerCase().includes(q)||(p.desc||'').toLowerCase().includes(q));}
 // Apply filters
@@ -5317,6 +5318,8 @@ function handleUrlParams(){
   const params = new URLSearchParams(window.location.search);
   const sku = params.get('sku');
   const pid = params.get('id');
+  const catParam = params.get('cat');
+  if(catParam && !sku && !pid){ openCategoryFromLink(catParam); return; }
   if(!sku && !pid) return;
   // Find product by SKU or ID
   const p = sku
@@ -5358,11 +5361,13 @@ async function initApp(){
       renderCats();
       renderGrid();
       startRealtimeSync();
+      handleUrlParams();
       // If 0 products loaded, retry after 2s — Firebase can be slow on first load
       if(products.length === 0){
         setTimeout(async ()=>{
           console.log('[Init] No products found, retrying...');
           await reloadProducts();
+          handleUrlParams();
         }, 2000);
       }
     }
@@ -6902,6 +6907,43 @@ function dgSearchInput(){
   const n = document.getElementById('dg-q');
   if(n){ n.focus(); try{ const l = (pos == null ? n.value.length : pos); n.setSelectionRange(l, l); }catch(x){} }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Compartir una categoría completa por WhatsApp (link ?cat=Nombre)
+// ═════════════════════════════════════════════════════════════════════════════
+function catKey(t){ return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
+function catLink(cat){ return CATALOG_URL + '?cat=' + encodeURIComponent(cat); }
+function updateShareCatBtn(){
+  const b = document.getElementById('btn-share-cat'); if(!b) return;
+  b.style.display = (currentCat && currentCat !== 'all') ? '' : 'none';
+}
+function openCategoryFromLink(raw){
+  const want = catKey(raw);
+  const names = Array.from(new Set(products.map(p => p.cat).filter(Boolean)));
+  const found = names.find(c => catKey(c) === want);
+  if(!found){ return; }
+  if(currentCat === found) return;
+  filterPrecioMin = 0; filterPrecioMax = 0; currentCat = found;
+  const t = document.getElementById('cat-title-display'); if(t) t.textContent = found;
+  updateShareCatBtn(); renderCats(); renderGrid();
+  try{ window.scrollTo(0, 0); }catch(e){}
+}
+async function shareCategory(){
+  if(!currentCat || currentCat === 'all'){ toast('Elegí primero una categoría'); return; }
+  const n = products.filter(p => p.cat === currentCat).length;
+  const url = catLink(currentCat);
+  const msg = 'Hola! Te comparto nuestra línea de ' + currentCat + ' (' + n + ' producto' + (n === 1 ? '' : 's') + ') de Moss Home Store, con fotos y medidas para que puedas verlas y cotizar:\n' + url;
+  if(navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
+    try{ await navigator.share({ title: 'Moss Home Store — ' + currentCat, text: msg }); return; }
+    catch(e){ if(e && e.name === 'AbortError') return; }
+  }
+  const w = window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  if(!w){
+    try{ await navigator.clipboard.writeText(msg); toast('Mensaje copiado — pegalo en WhatsApp'); }
+    catch(e){ prompt('Copiá este mensaje:', msg); }
+  }
+}
+
 </script>
 </body>
 </html>
