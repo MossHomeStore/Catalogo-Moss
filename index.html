@@ -1694,6 +1694,14 @@ html, body{ max-width:100%; overflow-x:clip; }
         <option value="si">Sí — el cliente elige la tela</option>
       </select>
     </div>
+    <div class="form-group">
+      <label class="form-label">Origen / fabricación</label>
+      <select class="form-select" id="f-origen">
+        <option value="auto">Automático (según la categoría)</option>
+        <option value="nacional">Fabricado a medida — industria nacional</option>
+        <option value="otro">Otro (no lleva la leyenda)</option>
+      </select>
+    </div>
     <div class="divider"></div>
     <div class="form-group">
       <label class="form-label">Fotos del producto</label>
@@ -2854,12 +2862,28 @@ async function queueWooSync(p){
     if(seen[k]) throw new Error('Hay medidas repetidas ("' + wooVarLabel(m) + '"): cambiá el nombre o las dimensiones de una');
     seen[k] = 1;
   }
+  const newImages = imgs.filter(u => typeof u === 'string' && u.startsWith('http')).map(u => { const x = (p.imagesWeb || []).find(y => y.s === u); return x ? x.w : u; });
+  // ¿Cambió la descripción o las fotos desde el último envío? El plugin solo toca eso en la web cuando cambió.
+  // Sin envío previo no se marca nada: decide la opción "No tocar fotos ni descripción" del plugin.
+  const exPrev = p.wooExport, prev = exPrev && exPrev.payload;
+  let descChanged, imagesChanged;
+  if(prev){
+    descChanged = String(prev.desc || '') !== String(p.desc || '');
+    imagesChanged = JSON.stringify(prev.images || []) !== JSON.stringify(newImages);
+    const unsynced = !p.wooSyncedAt || Number(exPrev.at) > Number(p.wooSyncedAt) || !!p.wooSyncError;
+    if(unsynced){   // el envío anterior no llegó a la web: se arrastran sus cambios pendientes
+      descChanged = descChanged || prev.descChanged !== false;
+      imagesChanged = imagesChanged || prev.imagesChanged !== false;
+    }
+  }
   p.wooExport = {
     at: Date.now(),
     payload: {
       name: p.name || '', sku: sku, desc: p.desc || '', cat: p.cat || '', publish: !!window._wooPublishDrafts,
-      images: imgs.filter(u => typeof u === 'string' && u.startsWith('http')).map(u => { const x = (p.imagesWeb || []).find(y => y.s === u); return x ? x.w : u; }),
-      measures: measures
+      images: newImages,
+      measures: measures,
+      short: wooShortLine(p),
+      descChanged: descChanged, imagesChanged: imagesChanged
     }
   };
   await saveProduct_fb(stripUndefinedDeep(p));
@@ -3081,8 +3105,8 @@ function openProductModal(id=null){
     openSofaProductEditor(String(id));
     return;
   }
-  editingId=id!=null?+id:null;tempImgs=[];tempMeasures=[];document.getElementById('measures-tbody').innerHTML='';document.getElementById('f-img-thumbs').innerHTML='';if(id){const p=products.find(x=>x.id==id);document.getElementById('form-modal-title').textContent='Editar producto';document.getElementById('f-name').value=p.name;
-    document.getElementById('f-sku').value=p.sku||'';document.getElementById('f-desc').value=p.desc||'';document.getElementById('f-upholstery').value=p.upholstery?'si':'no';document.getElementById('f-factor').value=p.factor||'';populateMaderaSelect();setTimeout(()=>{const ms=document.getElementById('f-madera');if(ms)ms.value=p.madera||'';},50);// Set category without triggering onchange (avoids overwriting SKU)
+  editingId=id!=null?+id:null;tempImgs=[];tempMeasures=[];document.getElementById('measures-tbody').innerHTML='';document.getElementById('f-img-thumbs').innerHTML='';{const oe=document.getElementById('f-origen');if(oe)oe.value='auto';}if(id){const p=products.find(x=>x.id==id);document.getElementById('form-modal-title').textContent='Editar producto';document.getElementById('f-name').value=p.name;
+    document.getElementById('f-sku').value=p.sku||'';document.getElementById('f-desc').value=p.desc||'';document.getElementById('f-upholstery').value=p.upholstery?'si':'no';{const oe=document.getElementById('f-origen');if(oe)oe.value=p.origen||'auto';}document.getElementById('f-factor').value=p.factor||'';populateMaderaSelect();setTimeout(()=>{const ms=document.getElementById('f-madera');if(ms)ms.value=p.madera||'';},50);// Set category without triggering onchange (avoids overwriting SKU)
     // Refresh category select with latest categories (including newly added ones)
     const catEl=document.getElementById('f-cat');
     catEl.innerHTML=[...categories].sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -3306,6 +3330,8 @@ function saveProduct(){
   const descVal = descEl ? (descEl.value||'')                     : '';
   const uphVal  = uphEl  ? uphEl.value === 'si'                   : false;
   const facVal  = facEl  ? (parseFloat(facEl.value)||null)        : null;
+  const oriEl   = document.getElementById('f-origen');
+  const oriVal  = oriEl ? oriEl.value : 'auto';
 
   // Step 2: generate SKU if missing
   let finalSku = skuVal;
@@ -3321,6 +3347,7 @@ function saveProduct(){
     cat:        catVal,
     desc:       descVal,
     upholstery: uphVal,
+    origen:     oriVal,
     images:     Array.isArray(tempImgs) ? [...tempImgs] : [],
     measures:   Array.isArray(tempMeasures) ? tempMeasures.map(m => Object.assign({}, m)) : [],
     carp:       0,
@@ -7031,6 +7058,15 @@ function mossStamp(dataUrl){
   }catch(e){ console.warn('[Meta] No se pudo marcar la foto', e); return dataUrl; }
 }
 
+
+// Leyenda breve para la descripción corta de moss.uy (productos fabricados a medida en Uruguay).
+const MOSS_FAB_LINE = 'Fabricado a medida · Producto de industria nacional · Plazo de entrega: 30 días';
+function isNacional(p){
+  if(p.origen === 'nacional') return true;
+  if(p.origen === 'otro') return false;
+  return typeof dgKind === 'function' && dgKind(p) === 'fabricado';
+}
+function wooShortLine(p){ return isNacional(p) ? MOSS_FAB_LINE : ''; }
 </script>
 </body>
 </html>
