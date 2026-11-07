@@ -2850,8 +2850,8 @@ async function queueWooSync(p){
   }));
   const seen = {};
   for(const m of measures){
-    const k = wooOptionLabel(m).toLowerCase().replace(/[^a-z0-9]+/g, '');
-    if(seen[k]) throw new Error('Hay medidas repetidas ("' + wooOptionLabel(m) + '"): cambiá el nombre o las dimensiones de una');
+    const k = wooVarLabel(m).toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if(seen[k]) throw new Error('Hay medidas repetidas ("' + wooVarLabel(m) + '"): cambiá el nombre o las dimensiones de una');
     seen[k] = 1;
   }
   p.wooExport = {
@@ -2935,6 +2935,16 @@ function wooBatchCandidates(mode){
 // ── Exportar CSV para el importador de WooCommerce ───────────────────────
 // Misma lógica de etiquetas que la Cloud Function (optionLabel), para que luego
 // "Actualizar en moss.uy" reconozca estos productos/variaciones y no los duplique.
+// Etiqueta de la medida tal como la ve el cliente en moss.uy (misma regla que el plugin):
+// "Nombre - Ancho 180 - Alto 50 - Prof. 40". Si no hay nombre, usa "Medida".
+function wooVarLabel(m){
+  const base = String(m.name || '').trim() || 'Medida';
+  const parts = [base];
+  if(m.w) parts.push('Ancho ' + m.w);
+  if(m.h) parts.push('Alto ' + m.h);
+  if(m.d) parts.push('Prof. ' + m.d);
+  return parts.join(' - ').replace(/\|/g, '/').replace(/,/g, ' ');
+}
 function wooOptionLabel(m){
   const d = [m.w, m.h, m.d].filter(Boolean).join('×');
   const base = String(m.name || 'Medida').trim();
@@ -2954,7 +2964,7 @@ function exportWooCsv(){
   withSku.forEach(p => {
     const sku = String(p.sku).trim();
     const imgs = (p.images || []).filter(x => typeof x === 'string' && x.startsWith('http')).join(', ');
-    const labels = p.measures.map(wooOptionLabel);
+    const labels = p.measures.map(wooVarLabel);
     rows.push(['variable', sku, p.name || '', 1, 'visible', p.desc || '', 1, p.cat || '', imgs, '', 0,
       'Medida', labels.join(', '), 1, 0, '', '', '', '']);
     p.measures.forEach((m, i) => {
