@@ -2819,6 +2819,7 @@ function renderAdmin(){
       '<td style="white-space:nowrap;">'+
         '<button class="btn-sm btn-sm-edit" onclick="openProductModal(\''+p.id+'\')">Editar</button>'+
         '<button class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="openLabelModal('+p.id+')">🏷️</button>'+
+        '<button class="btn-sm" title="Duplicar producto" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);" onclick="duplicateProduct(\''+p.id+'\')">📋</button>'+
         '<button class="btn-sm" id="woo-btn-'+p.id+'" style="background:#7f54b3;color:#fff;" onclick="publishToWoo(\''+p.id+'\')">'+((p.wooId||p.wooExport)?'🔄 Actualizar en moss.uy':'🌐 Publicar en moss.uy')+'</button>'+
         (p.wooUrl?'<a href="'+p.wooUrl+'" target="_blank" class="btn-sm" style="background:var(--linen-dark);border:1px solid var(--border);color:var(--espresso);text-decoration:none;">Ver</a>':'')+
         wooStatusHtml(p)+
@@ -3105,7 +3106,7 @@ function openProductModal(id=null){
     openSofaProductEditor(String(id));
     return;
   }
-  editingId=id!=null?+id:null;tempImgs=[];tempMeasures=[];document.getElementById('measures-tbody').innerHTML='';document.getElementById('f-img-thumbs').innerHTML='';{const oe=document.getElementById('f-origen');if(oe)oe.value='auto';}if(id){const p=products.find(x=>x.id==id);document.getElementById('form-modal-title').textContent='Editar producto';document.getElementById('f-name').value=p.name;
+  editingId=id!=null?+id:null;tempImgs=[];tempMeasures=[];document.getElementById('measures-tbody').innerHTML='';document.getElementById('f-img-thumbs').innerHTML='';{const oe=document.getElementById('f-origen');if(oe)oe.value='auto';}document.getElementById('form-modal-title').textContent='Nuevo producto';if(id){const p=products.find(x=>x.id==id);document.getElementById('form-modal-title').textContent='Editar producto';document.getElementById('f-name').value=p.name;
     document.getElementById('f-sku').value=p.sku||'';document.getElementById('f-desc').value=p.desc||'';document.getElementById('f-upholstery').value=p.upholstery?'si':'no';{const oe=document.getElementById('f-origen');if(oe)oe.value=p.origen||'auto';}document.getElementById('f-factor').value=p.factor||'';populateMaderaSelect();setTimeout(()=>{const ms=document.getElementById('f-madera');if(ms)ms.value=p.madera||'';},50);// Set category without triggering onchange (avoids overwriting SKU)
     // Refresh category select with latest categories (including newly added ones)
     const catEl=document.getElementById('f-cat');
@@ -7067,6 +7068,29 @@ function isNacional(p){
   return typeof dgKind === 'function' && dgKind(p) === 'fabricado';
 }
 function wooShortLine(p){ return isNacional(p) ? MOSS_FAB_LINE : ''; }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Duplicar un producto: abre el formulario de "Nuevo producto" con todos los datos
+// (descripción, categoría, madera, factor, medidas y precios) y SIN fotos ni vínculo con moss.uy.
+// No se guarda nada hasta que se toca "Guardar producto".
+// ═════════════════════════════════════════════════════════════════════════════
+function duplicateProduct(id){
+  const src = products.find(x => String(x.id) === String(id));
+  if(!src){ toast('No se encontró el producto'); return; }
+  if(src.sofaModelId || String(id).startsWith('sofa_')){ toast('Los sofás se duplican desde su propio editor'); return; }
+  openProductModal(id);
+  editingId = null;                                   // se guardará como producto NUEVO
+  tempImgs = [];
+  const th = document.getElementById('f-img-thumbs'); if(th) th.innerHTML = '';
+  tempMeasures = (src.measures || []).map(m => { const c = Object.assign({}, m); delete c.wooVariationId; return c; });
+  if(typeof renderMeasures === 'function') renderMeasures();
+  document.getElementById('form-modal-title').textContent = 'Duplicar producto — copia de «' + src.name + '»';
+  const nm = document.getElementById('f-name'); nm.value = '';
+  nm.placeholder = 'Nombre del nuevo producto (copia de ' + src.name + ')';
+  try{ document.getElementById('f-sku').value = autoSku(src.cat); }catch(e){ document.getElementById('f-sku').value = ''; }
+  setTimeout(() => { try{ nm.focus(); }catch(e){} }, 120);
+  toast('Copia lista: poné el nombre y subí las fotos nuevas');
+}
 </script>
 </body>
 </html>
