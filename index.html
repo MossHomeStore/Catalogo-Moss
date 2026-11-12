@@ -3552,10 +3552,13 @@ function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure,maderaOverride)
         // All within tolerance → closest price
         price = closest.price;
       } else {
-        // Step 3: which dims vary across catalog variants?
-        const wRange = Math.max(...usable.map(v=>v.m.w)) - Math.min(...usable.map(v=>v.m.w));
-        const hRange = Math.max(...usable.map(v=>v.m.h)) - Math.min(...usable.map(v=>v.m.h));
-        const dRange = Math.max(...usable.map(v=>v.m.d)) - Math.min(...usable.map(v=>v.m.d));
+        // Step 3: solo son comparables las variantes que coinciden (±TOL) con lo pedido en las medidas que NO cambiaron.
+        // Antes se interpolaba con TODAS: una variante más ancha (y más cara) distorsionaba el precio al cambiar solo el alto.
+        const cmp = usable.filter(v => (wChg || Math.abs(v.m.w - w) <= TOL) && (hChg || Math.abs(v.m.h - h) <= TOL) && (dChg || Math.abs(v.m.d - d) <= TOL));
+        if(cmp.indexOf(closest) < 0) cmp.push(closest);
+        const wRange = Math.max(...cmp.map(v=>v.m.w)) - Math.min(...cmp.map(v=>v.m.w));
+        const hRange = Math.max(...cmp.map(v=>v.m.h)) - Math.min(...cmp.map(v=>v.m.h));
+        const dRange = Math.max(...cmp.map(v=>v.m.d)) - Math.min(...cmp.map(v=>v.m.d));
 
         // Catalog dims that also changed in this request → interpolate on these
         const catW = wChg && wRange > TOL;
@@ -3584,7 +3587,7 @@ function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure,maderaOverride)
             getMetric = (v, isReq) => isReq ? w*h*d : v.m.w*v.m.h*v.m.d;
           }
           const reqM = getMetric(null, true);
-          const sorted = usable
+          const sorted = cmp
             .map(v => ({v, m: getMetric(v, false)}))
             .sort((a,b) => a.m - b.m);
           let lo = sorted[0], hi = sorted[sorted.length-1];
@@ -3604,7 +3607,14 @@ function showQuoteResult(w,h,d,name,dimLabel,isCustom,refMeasure,maderaOverride)
           basePrice *= Math.sqrt(extraRatio);
         }
 
+        if(!(basePrice > 0)) basePrice = closest.price * Math.sqrt((w*h*d) / (closest.m.w*closest.m.h*closest.m.d));
         price = basePrice;
+        // Coherencia: si todas las medidas pedidas son iguales o menores que las de la variante más cercana, no puede costar más
+        // (y al revés si son iguales o mayores).
+        const dn = w <= closest.m.w && h <= closest.m.h && d <= closest.m.d;
+        const up = w >= closest.m.w && h >= closest.m.h && d >= closest.m.d;
+        if(dn && !up) price = Math.min(price, closest.price);
+        else if(up && !dn) price = Math.max(price, closest.price);
       }
     }
 
